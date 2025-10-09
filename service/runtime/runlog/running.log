@@ -1,0 +1,66 @@
+2025-10-09T16:11:34.070+0800	INFO	config/config.go:40	配置文件已经自动生成'conf/conf.ini',将再次读取配置
+2025-10-09T16:11:34.088+0800	INFO	config/config.go:45	尝试读取配置文件'conf/conf.ini',二次读取配置文件成功
+2025-10-09T16:11:34.088+0800	INFO	lang/lang.go:20	输出语言文件: lang/zh-cn.ini
+2025-10-09T16:57:04.716+0800	DEBUG	global/cache.go:25	缓存驱动: memory
+2025-10-09T16:57:04.717+0800	DEBUG	global/cache.go:25	缓存驱动: memory
+2025-10-09T16:57:04.717+0800	DEBUG	global/cache.go:25	缓存驱动: memory
+2025-10-09T16:57:04.717+0800	DEBUG	global/cache.go:25	缓存驱动: memory
+2025-10-09T16:57:04.717+0800	DEBUG	global/cache.go:25	缓存驱动: memory
+2025-10-09T16:57:04.721+0800	INFO	router/A_ENTER.go:38	Sun-Panel is Started.  Listening and serving HTTP on :3002
+2025-10-09T17:01:21.227+0800	DEBUG	middleware/PublicModeInterceptor.go:50	cToken不存在
+2025-10-09T17:01:21.228+0800	DEBUG	middleware/PublicModeInterceptor.go:68	访客用户不存在:<nil> 
+2025-10-09T17:01:21.229+0800	DEBUG	middleware/PublicModeInterceptor.go:50	cToken不存在
+2025-10-09T17:01:21.229+0800	DEBUG	middleware/PublicModeInterceptor.go:50	cToken不存在
+2025-10-09T17:01:21.229+0800	DEBUG	middleware/PublicModeInterceptor.go:68	访客用户不存在:<nil> 
+2025-10-09T17:01:21.231+0800	DEBUG	middleware/PublicModeInterceptor.go:68	访客用户不存在:<nil> 
+2025-10-09T17:02:35.285+0800	DEBUG	system/login.go:98	token:29777f24-6e3d-47e5-b30c-ad424360c0c6-144bbb22a486ad1af8e37ff437daf68b|qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:02:35.285+0800	DEBUG	system/login.go:99	qizjw1wdoixwmbvomui0rjejx1vuakmstrue
+2025-10-09T17:02:36.125+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:02:36.126+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:02:36.155+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:02:36.174+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:02:36.177+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:03:04.177+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:03:04.177+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:19:49.894+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:19:49.895+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:20:17.745+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:20:17.761+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:20:17.761+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:20:17.847+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:qizjw1wdoixwmbvomui0rjejx1vuakms
+2025-10-09T17:20:28.507+0800	DEBUG	middleware/PublicModeInterceptor.go:50	cToken不存在
+2025-10-09T17:20:28.508+0800	DEBUG	middleware/PublicModeInterceptor.go:68	访客用户不存在:<nil> 
+2025-10-09T17:20:28.509+0800	DEBUG	middleware/PublicModeInterceptor.go:50	cToken不存在
+2025-10-09T17:20:28.509+0800	DEBUG	middleware/PublicModeInterceptor.go:50	cToken不存在
+2025-10-09T17:20:28.509+0800	DEBUG	middleware/PublicModeInterceptor.go:68	访客用户不存在:<nil> 
+2025-10-09T17:20:28.509+0800	DEBUG	middleware/PublicModeInterceptor.go:68	访客用户不存在:<nil> 
+2025-10-09T17:20:38.543+0800	DEBUG	system/login.go:98	token:a022dbbd-a472-4137-8d7d-88136a08745b-144bbb22a486ad1af8e37ff437daf68b|ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:20:38.543+0800	DEBUG	system/login.go:99	ppglsbb7zsb56yl8iquercqymzz7z94vtrue
+2025-10-09T17:20:39.402+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:20:39.402+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:20:39.402+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:20:39.403+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:20:39.403+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:20:39.404+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:20:39.663+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.533+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.533+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:22:46.534+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.534+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.565+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.873+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.873+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:46.876+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:22:47.198+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:23:05.933+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:23:05.934+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:23:05.934+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:23:05.974+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:28:29.001+0800	DEBUG	middleware/LoginInterceptor.go:44	准备查询数据库的用户资料ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:28:52.578+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:28:52.579+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:32:17.238+0800	DEBUG	middleware/PublicModeInterceptor.go:32	数据库查询TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:32:17.239+0800	DEBUG	middleware/PublicModeInterceptor.go:36	数据库查询用户:1
+2025-10-09T17:32:17.240+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:32:17.240+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T17:32:17.279+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
