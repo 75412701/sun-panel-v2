@@ -1,5 +1,5 @@
-const fs = require('fs')
 // const { execSync } = require('child_process')
+const fs = require('fs')
 const moment = require('moment')
 
 // git 最新标签
