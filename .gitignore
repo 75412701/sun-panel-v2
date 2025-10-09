@@ -5,6 +5,7 @@ target/
 .idea/
 *.iml
 node_modules
+dist
 # User-specific stuff
 target/
 .idea/
