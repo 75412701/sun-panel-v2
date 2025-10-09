@@ -2,7 +2,7 @@ version: "3.2"
 
 services:
   sun-panel:
-    image: '75412701/sun-panel-v2:latest'
+    image: 'ghcr.io/75412701/sun-panel-v2:latest'
     container_name: sun-panel-v2
     volumes:
     - ./conf:/app/conf

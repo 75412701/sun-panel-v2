@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@traptitech/markdown-it-katex": "^3.6.0",
+    "@vicons/ionicons5": "^0.13.0",
     "@vueuse/core": "^9.13.0",
     "highlight.js": "^11.7.0",
     "katex": "^0.16.4",

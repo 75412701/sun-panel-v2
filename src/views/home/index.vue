@@ -14,7 +14,9 @@ import { PanelPanelConfigStyleEnum, PanelStateNetworkModeEnum } from '@/enums'
 import { VisitMode } from '@/enums/auth'
 import { router } from '@/router'
 import { t } from '@/locales'
-
+import {  computed } from "vue"
+import { useWindowSize } from "@vueuse/core"
+import { NDrawer, NDrawerContent, NTree,  } from "naive-ui"
 interface ItemGroup extends Panel.ItemIconGroup {
   sortStatus?: boolean
   hoverStatus: boolean
@@ -47,6 +49,41 @@ const settingModalShow = ref(false)
 
 const items = ref<ItemGroup[]>([])
 const filterItems = ref<ItemGroup[]>([])
+
+
+const drawerVisible = ref(false)
+const { width } = useWindowSize()
+
+// 移动端判断
+const isMobile = computed(() => width.value < 768)
+
+// 假数据树
+const treeData = ref([
+	{
+		label: "一级 1",
+		key: "1",
+		children: [
+			{
+				label: "二级 1-1",
+				key: "1-1",
+				children: [
+					{ label: "三级 1-1-1", key: "1-1-1" },
+					{ label: "三级 1-1-2", key: "1-1-2" }
+				]
+			}
+		]
+	},
+	{
+		label: "一级 2",
+		key: "2",
+		children: [
+			{ label: "二级 2-1", key: "2-1" },
+			{ label: "二级 2-2", key: "2-2" }
+		]
+	}
+])
+
+
 
 function openPage(openMethod: number, url: string, title?: string) {
   switch (openMethod) {
@@ -323,6 +360,41 @@ function handleAddItem(itemIconGroupId?: number) {
 </script>
 
 <template>
+	<div>
+		<!-- 左上角抽屉按钮 - 大众常用样式 -->
+		<div
+			@click="drawerVisible = !drawerVisible"
+			class="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-transparent shadow-none text-gray-800 cursor-pointer transition-all hover:bg-gray-100"
+		>
+			<svg viewBox="0 0 24 24" class="w-6 h-6" v-if="drawerVisible">
+				<path
+					d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12
+         5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+					fill="currentColor"
+				/>
+			</svg>
+			<svg viewBox="0 0 24 24" class="w-6 h-6" v-else>
+				<path
+					d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
+					fill="currentColor"
+				/>
+			</svg>
+		</div>
+
+		<!-- 左侧抽屉 -->
+		<NDrawer
+			v-model:show="drawerVisible"
+			placement="left"
+			:width="isMobile ? '80%' : 300"
+			style="overflow-y: auto;"
+		>
+			<NDrawerContent title="树形结构" style=" min-height: 100vh;">
+				<NTree :data="treeData" block-line expand-on-click />
+				<!-- 模拟很多数据 -->
+				<div v-for="i in 30" :key="i" class="p-2 text-gray-700">假数据 {{ i }}</div>
+			</NDrawerContent>
+		</NDrawer>
+	</div>
   <div class="w-full h-full sun-main">
     <div
       class="cover wallpaper" :style="{
@@ -656,5 +728,10 @@ html {
   .icon-info-box{
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
+}
+
+/* 优化条状按钮阴影 */
+.fixed {
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 </style>
