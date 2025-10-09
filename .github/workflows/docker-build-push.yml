@@ -45,7 +45,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .  # 在项目根目录找 Dockerfile 构建
-          platforms: linux/amd64,linux/arm,linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: true
           # 镜像标签格式：ghcr.io/小写用户名/镜像名:版本 和 ghcr.io/小写用户名/镜像名:latest
           tags: |
