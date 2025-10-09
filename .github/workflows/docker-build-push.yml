@@ -1,22 +1,53 @@
-# 1. 添加 permissions 字段，给 GITHUB_TOKEN 分配推送权限
+name: docker-push
+
+on:
+  workflow_dispatch:
+  # 暂时取消自动编译，优化后重新开启
+  # push:
+  #   tags:
+  #     - 'v*'
+
+# 添加权限配置，允许推送镜像到 GitHub 容器仓库
 permissions:
-  packages: write  # 关键：允许推送镜像到 GHCR
-  contents: read   # 允许读取仓库代码（构建需要）
+  packages: write  # 核心权限：允许推送镜像到 GHCR
+  contents: read   # 允许读取仓库代码
 
-  # 2. 登录步骤改为登录 GHCR
-  - name: Login to GitHub Container Registry
-    uses: docker/login-action@v2
-    with:
-      registry: ghcr.io
-      username: ${{ github.actor }}  # 自动获取当前 GitHub 用户名
-      password: ${{ secrets.GITHUB_TOKEN }}  # 用内置密钥
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  # 3. 构建推送步骤，镜像标签改为 GHCR 格式
-  - name: Build and push
-    uses: docker/build-push-action@v4
-    with:
-      context: .
-      platforms: linux/amd64,linux/arm,linux/arm64
-      push: true
-      # 镜像标签：ghcr.io/你的GitHub用户名/你的镜像名:版本
-      tags: ghcr.io/75412701/sun-panel-v2:${{ env.APP_VERSION }},ghcr.io/75412701/sun-panel-v2:latest
+      - name: Read version from file
+        id: read_version
+        run: echo "APP_VERSION=$(cut -d '|' -f 2 ./service/assets/version)" >> $GITHUB_ENV
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io  # 目标仓库为 GitHub 容器仓库
+          username: ${{ github.actor }}  # 自动获取当前 GitHub 用户名
+          password: ${{ secrets.GITHUB_TOKEN }}  # 使用 GitHub 自动生成的令牌
+
+      # 转换仓库所有者为小写（GHCR 要求用户名必须小写）
+      - name: Set lowercase repository owner
+        id: lowercase
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .  # 在项目根目录找 Dockerfile 构建
+          platforms: linux/amd64,linux/arm,linux/arm64
+          push: true
+          # 镜像标签格式：ghcr.io/小写用户名/镜像名:版本 和 ghcr.io/小写用户名/镜像名:latest
+          tags: |
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/sun-panel-v2:${{ env.APP_VERSION }}
+            ghcr.io/${{ steps.lowercase.outputs.owner }}/sun-panel-v2:latest
