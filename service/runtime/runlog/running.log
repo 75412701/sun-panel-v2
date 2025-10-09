@@ -180,3 +180,5 @@
 2025-10-09T19:54:57.774+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
 2025-10-09T19:54:57.774+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
 2025-10-09T19:54:57.774+0800	DEBUG	middleware/PublicModeInterceptor.go:28	缓存的用户TOKEN:ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T19:57:16.617+0800	DEBUG	middleware/LoginInterceptor.go:44	准备查询数据库的用户资料ppglsbb7zsb56yl8iquercqymzz7z94v
+2025-10-09T19:57:16.617+0800	DEBUG	middleware/LoginInterceptor.go:44	准备查询数据库的用户资料ppglsbb7zsb56yl8iquercqymzz7z94v

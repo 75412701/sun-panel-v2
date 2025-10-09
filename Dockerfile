@@ -1,21 +1,20 @@
 # build frontend
-FROM node AS web_image
+FROM node:18-alpine AS web_image
 
-# 华为源
-# RUN npm config set registry https://repo.huaweicloud.com/repository/npm/
+# 使用淘宝npm镜像源加速依赖安装
+RUN npm config set registry https://registry.npmmirror.com
 
 RUN npm install pnpm -g
 
 WORKDIR /build
 
-COPY ./package.json /build
-
-COPY ./pnpm-lock.yaml /build
-
-RUN pnpm install
-
+# 先复制整个项目（排除.dockerignore中的文件）
 COPY . /build
 
+# 安装依赖
+RUN pnpm install
+
+# 构建项目
 RUN pnpm run build
 
 # build backend
