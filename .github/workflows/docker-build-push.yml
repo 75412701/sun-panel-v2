@@ -7,10 +7,9 @@ on:
   #   tags:
   #     - 'v*'
 
-# 添加权限配置，允许推送镜像到 GitHub 容器仓库
 permissions:
-  packages: write  # 核心权限：允许推送镜像到 GHCR
-  contents: read   # 允许读取仓库代码
+  packages: write
+  contents: read
 
 jobs:
   build:
@@ -19,26 +18,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # 关键步骤1：设置 Node.js 版本为 22.10.0（与你本地一致）
+      # 步骤1：安装 Node.js 22.10.0（自带 npm）
       - name: Set up Node.js 22.10.0
         uses: actions/setup-node@v4
         with:
-          node-version: '22.10.0'  # 强制指定与本地相同的 Node 版本
-          cache: 'pnpm'            # 缓存 pnpm 依赖，加速构建
-          cache-dependency-path: 'pnpm-lock.yaml'  # 基于锁定文件缓存，确保依赖一致
+          node-version: '22.10.0'
+          cache: 'npm'  # 先缓存 npm（后续用 npm 装 pnpm）
+          cache-dependency-path: 'package.json'  # 基于 package.json 缓存 npm 依赖
 
-      # 关键步骤2：安装 pnpm（与本地包管理器一致）并安装前端依赖
-      - name: Install pnpm and frontend dependencies
+      # 步骤2：通过 npm 全局安装 pnpm（关键修复：解决 pnpm 找不到的问题）
+      - name: Install pnpm globally via npm
         run: |
-          npm install -g pnpm@latest  # 安装最新版 pnpm（与本地保持一致）
-          pnpm install --frozen-lockfile  # 基于锁定文件安装，禁止版本漂移
+          npm install -g pnpm@latest  # 用 Node.js 自带的 npm 安装 pnpm
+          pnpm --version  # 验证 pnpm 安装成功（可选，用于调试）
 
-      # 关键步骤3：本地预执行类型检查和构建（提前暴露错误，避免 Docker 内报错）
+      # 步骤3：用 pnpm 安装前端依赖（此时 pnpm 已在 PATH 中）
+      - name: Install frontend dependencies with pnpm
+        run: |
+          pnpm install --frozen-lockfile  # 基于锁定文件安装，确保依赖一致
+
+      # 步骤4：预执行类型检查和构建（提前暴露错误）
       - name: Run type check and build frontend
         run: |
-          pnpm run type-check  # 执行类型检查，与打包逻辑一致
-          pnpm run build       # 本地构建前端，确保构建产物正常（可选，可加速 Docker 内构建）
+          pnpm run type-check
+          pnpm run build
 
+      # 后续步骤（版本读取、QEMU、Docker 构建）不变
       - name: Read version from file
         id: read_version
         run: echo "APP_VERSION=$(cut -d '|' -f 2 ./service/assets/version)" >> $GITHUB_ENV
@@ -52,26 +57,22 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
-          registry: ghcr.io  # 目标仓库为 GitHub 容器仓库
-          username: ${{ github.actor }}  # 自动获取当前 GitHub 用户名
-          password: ${{ secrets.GITHUB_TOKEN }}  # 使用 GitHub 自动生成的令牌
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 转换仓库所有者为小写（GHCR 要求用户名必须小写）
       - name: Set lowercase repository owner
         id: lowercase
         run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-      # 关键优化：Docker 构建时传递 Node 版本参数，确保容器内也使用 22.10.0
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
-          context: .  # 在项目根目录找 Dockerfile 构建
+          context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          # 传递构建参数：指定 Node 版本（需 Dockerfile 配合接收）
           build-args: |
             NODE_VERSION=22.10.0
-          # 镜像标签格式：ghcr.io/小写用户名/镜像名:版本 和 ghcr.io/小写用户名/镜像名:latest
           tags: |
             ghcr.io/${{ steps.lowercase.outputs.owner }}/sun-panel-v2:${{ env.APP_VERSION }}
             ghcr.io/${{ steps.lowercase.outputs.owner }}/sun-panel-v2:latest
