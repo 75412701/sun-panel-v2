@@ -5,6 +5,11 @@ import { setupPageGuard } from './permission'
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/bookmark-manager',
+    name: 'BookmarkManager',
+    component: () => import('@/views/bookmark-manager/index.vue'),
+  },
+  {
     path: '/',
     name: 'Home',
     component: () => import('@/views/home/index.vue'),

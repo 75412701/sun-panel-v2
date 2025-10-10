@@ -125,6 +125,11 @@ function handWindowIframeIdLoad(payload: Event) {
   windowIframeIsLoad.value = false
 }
 
+function navigateToBookmarkManager() {
+  // 跳转到书签管理页面
+  router.push('/bookmark-manager')
+}
+
 function getList() {
   // 获取组数据
   getGroupList<Common.ListResponse<ItemGroup[]>>().then(({ code, data, msg }) => {
@@ -388,7 +393,16 @@ function handleAddItem(itemIconGroupId?: number) {
 			:width="isMobile ? '80%' : 300"
 			style="overflow-y: auto;"
 		>
-			<NDrawerContent title="树形结构" style=" min-height: 100vh;">
+			<NDrawerContent style=" min-height: 100vh;">
+				<template #header>
+					<div class="flex items-center justify-between w-full">
+						<span class="text-lg font-medium">书签列表</span>
+						<NButton type="primary" size="small" @click="navigateToBookmarkManager">
+
+							书签管理
+						</NButton>
+					</div>
+				</template>
 				<NTree :data="treeData" block-line expand-on-click />
 				<!-- 模拟很多数据 -->
 				<div v-for="i in 30" :key="i" class="p-2 text-gray-700">假数据 {{ i }}</div>

@@ -26,10 +26,6 @@ onMounted(() => {
   >
     <NaiveProvider>
       <RouterView />
-      <!-- 固定底部的一言区域 -->
-      <div class="foot" style="position: fixed; bottom: 0; left: 0; right: 0;  color: white; text-align: center; padding: 10px; z-index: 9999;">
-        <p id="hitokoto">:D 获取中...</p>
-      </div>
     </NaiveProvider>
   </NConfigProvider>
 </template>
