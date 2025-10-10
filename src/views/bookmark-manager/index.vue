@@ -20,6 +20,7 @@
 				type="success"
 				ghost
 				size="small"
+				:loading="uploadLoading"
 				class="flex items-center gap-1 text-green-600 hover:bg-green-100 transition-colors border border-green-200"
 			>
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -27,6 +28,22 @@
 				</svg>
 				导入书签
 			</NButton>
+			<!-- 隐藏的文件输入框 -->
+			<input
+					ref="fileInput"
+					type="file"
+					accept=".html"
+					style="display: none;"
+					@change="handleFileChange"
+				/>
+		</div>
+		<!-- 导入警告提示 -->
+		<div v-if="importWarning.length > 0" class="p-2 bg-yellow-50 border-b border-yellow-200">
+			<NAlert type="warning" :bordered="false" class="text-sm">
+				<div v-for="(text, index) in importWarning" :key="index" class="text-yellow-800">
+					{{ text }}
+				</div>
+			</NAlert>
 		</div>
 
 		<!-- 主内容区域 -->
@@ -95,14 +112,26 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { NTree, NDataTable, NInput, NDropdown, NButton, NMenu } from 'naive-ui'
+import { NTree, NDataTable, NInput, NDropdown, NButton, NMenu, NAlert, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import type { ImportBookmarkResult } from '@/utils/bookmarkImportExport'
+import { flattenBookmarkTree } from '@/utils/bookmarkImportExport'
+import { addMultiple as addMultipleBookmarks, getList as getBookmarksList } from '@/api/panel/bookmark'
+import { t } from '@/locales'
 
 const router = useRouter()
+const ms = useMessage()
 
 // 左侧面板宽度
 const leftPanelWidth = ref(256) // 默认256px
 const isResizing = ref(false)
+
+// 导入相关
+const fileInput = ref<HTMLInputElement>()
+const uploadLoading = ref(false)
+const jsonData = ref<string | null>(null)
+const importWarning = ref<string[]>([])
+const importObj = ref<ImportBookmarkResult | null>(null)
 
 // 返回首页
 function goBackToHome() {
@@ -144,6 +173,10 @@ interface Bookmark {
 	title: string
 	url: string
 	folderId?: number
+	isFolder?: boolean
+	parentId?: number
+	createTime?: string
+	updateTime?: string
 }
 
 
@@ -258,5 +291,295 @@ const handleContextSelect = (key: string) => {
 	contextMenu.value.show = false;
 };
 
+// 触发导入书签
+function triggerImportBookmarks() {
+	fileInput.value?.click();
+}
+
+// 处理文件选择变化
+function handleFileChange(event: Event) {
+	const target = event.target as HTMLInputElement;
+	const file = target.files?.[0];
+	
+	if (file) {
+		uploadLoading.value = true;
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			if (e.target?.result) {
+				jsonData.value = e.target.result as string;
+				importCheck(file.name);
+			} else {
+				ms.error(`${t('common.failed')}: ${t('common.repeatLater')}`);
+				uploadLoading.value = false;
+			}
+		};
+		reader.onerror = () => {
+			ms.error(`${t('common.failed')}: ${t('common.fileReadError')}`);
+			uploadLoading.value = false;
+		};
+		reader.readAsText(file);
+	} else {
+		uploadLoading.value = false;
+	}
+	
+	// 清空input的值，以便可以重复选择同一个文件
+	target.value = '';
+}
+
+// 验证导入文件
+function importCheck(fileName: string) {
+	importWarning.value = [];
+	
+	try {
+		if (fileName.endsWith('.html')) {
+			// 直接将HTML内容传递给后端解析
+			importBookmarksToServerWithHTML(jsonData.value!);
+		} else {
+			ms.error('只支持HTML格式的书签文件导入');
+		}
+	} catch (error) {
+		ms.error(`${t('common.failed')}: ${(error as Error).message || t('common.unknownError')}`);
+	} finally {
+		uploadLoading.value = false;
+	}
+}
+
+// 导入HTML书签到服务器
+async function importBookmarksToServerWithHTML(htmlContent: string) {
+	uploadLoading.value = true;
+	try {
+		// 直接将HTML内容传递给后端
+		const response = await addMultipleBookmarks({ htmlContent });
+		if (response.code === 0) {
+			ms.success(`${t('common.success')}，成功导入 ${response.data.count} 个书签`);
+			// 刷新书签列表
+			await refreshBookmarks();
+		} else {
+			ms.error(`${t('common.failed')}: ${response.msg}`);
+		}
+	} catch (error) {
+		ms.error(`${t('common.failed')}: ${(error as Error).message || t('common.unknownError')}`);
+	} finally {
+		uploadLoading.value = false;
+	}
+}
+
+// 旧的导入方法（保留用于向后兼容）
+async function importBookmarksToServer(bookmarks: any[]) {
+	uploadLoading.value = true;
+	try {
+		// 扁平化书签树
+		const flatBookmarks = flattenBookmarkTree(bookmarks);
+		
+		// 转换为服务器需要的格式
+		const bookmarksToImport = flatBookmarks.map(bookmark => ({
+			title: bookmark.title,
+			url: bookmark.url,
+			parentId: bookmark.folderId || 0,
+			isFolder: bookmark.isFolder ? 1 : 0,
+			sort: 9999, // 默认排序
+			lanUrl: '', // 局域网地址留空
+			IconJson: '' // 图标留空
+		}));
+		
+		// 批量导入到服务器
+		const response = await addMultipleBookmarks(bookmarksToImport);
+		if (response.code === 0) {
+			ms.success(`${t('common.success')}，成功导入 ${bookmarksToImport.length} 个书签`);
+			// 刷新书签列表
+			await refreshBookmarks();
+		} else {
+			ms.error(`${t('common.failed')}: ${response.msg}`);
+		}
+	} catch (error) {
+		ms.error(`${t('common.failed')}: ${(error as Error).message || t('common.unknownError')}`);
+	} finally {
+		uploadLoading.value = false;
+	}
+}
+
+// 刷新书签列表
+async function refreshBookmarks() {
+	try {
+		const response = await getBookmarksList();
+		if (response.code === 0) {
+			// 检查数据结构，如果已经是树形结构则直接使用
+			const data = response.data || [];
+			console.log('后端返回的数据:', data);
+			
+			// 检查是否已经是树形结构（直接包含children字段）
+			let treeData = [];
+			if (Array.isArray(data) && data.length > 0 && 'children' in data[0]) {
+				// 已经是树形结构，转换为前端需要的格式
+				treeData = convertServerTreeToFrontendTree(data);
+			} else if (data.list && Array.isArray(data.list)) {
+				// 后端返回的是带list字段的结构
+				const serverBookmarks = data.list;
+				if (serverBookmarks.length > 0 && 'children' in serverBookmarks[0]) {
+					// list字段中已经是树形结构
+					treeData = convertServerTreeToFrontendTree(serverBookmarks);
+				} else {
+					// 构建树形结构
+					treeData = buildBookmarkTree(serverBookmarks);
+				}
+			} else {
+				// 作为列表数据构建树形结构
+				treeData = buildBookmarkTree(Array.isArray(data) ? data : []);
+			}
+			
+			bookmarkTree.value = treeData;
+		}
+	} catch (error) {
+		console.error('刷新书签列表失败:', error);
+	}
+}
+
+// 将服务器返回的树形结构转换为前端组件需要的格式
+function convertServerTreeToFrontendTree(serverTree: any[]): any[] {
+	return serverTree.map(node => {
+		const frontendNode = {
+			key: node.id,
+			label: node.title,
+			isLeaf: node.isFolder !== 1,
+			bookmark: node.isFolder !== 1 ? {
+				id: node.id,
+				title: node.title,
+				url: node.url,
+				folderId: node.ParentUrl
+			} : undefined
+		};
+		
+		// 递归处理子节点
+		if (node.children && node.children.length > 0) {
+			frontendNode.children = convertServerTreeToFrontendTree(node.children);
+		}
+		
+		return frontendNode;
+	});
+}
+
+// 构建书签树
+function buildBookmarkTree(bookmarks: any[]): any[] {
+	// 首先分离文件夹和书签
+	const folders = bookmarks.filter(b => b.isFolder === 1);
+	const items = bookmarks.filter(b => b.isFolder === 0);
+	
+	// 构建文件夹树
+	const rootFolders: any[] = [];
+	const folderMap = new Map<string, any>(); // 使用字符串键，因为ParentUrl可能是字符串
+	
+	console.log('后端返回的书签数据:', bookmarks);
+	console.log('分离出的文件夹:', folders);
+	console.log('分离出的书签:', items);
+	
+	// 先创建所有文件夹节点
+	folders.forEach(folder => {
+		const folderNode = {
+			key: folder.id,
+			label: folder.title,
+			children: [],
+			isFolder: true
+		};
+		// 使用id作为map的键，因为ParentUrl可能是文件夹的名称或其他标识
+		folderMap.set(folder.id.toString(), folderNode);
+		// 同时也将文件夹名称作为键，以便处理嵌套关系
+		folderMap.set(folder.title, folderNode);
+	});
+	
+	// 将文件夹添加到其父文件夹中
+	folders.forEach(folder => {
+		const folderNode = folderMap.get(folder.id.toString());
+		// 检查是否有ParentUrl并且不是根节点(0)
+		if (folder.ParentUrl && folder.ParentUrl !== '0' && folder.ParentUrl !== 0) {
+			// 尝试用不同的方式查找父文件夹
+			let parentFolder = folderMap.get(folder.ParentUrl.toString());
+			
+			if (!parentFolder) {
+				// 如果找不到，尝试用文件夹标题匹配
+				parentFolder = folderMap.get(folder.ParentUrl);
+			}
+			
+			if (parentFolder) {
+				parentFolder.children.push(folderNode);
+				return;
+			}
+		}
+		// 如果没有父文件夹或者父文件夹不存在，则添加到根节点
+		rootFolders.push(folderNode);
+	});
+	
+	// 将书签添加到对应的文件夹中
+	items.forEach(item => {
+		const bookmarkItem = {
+			key: item.id,
+			label: item.title,
+			isLeaf: true,
+			bookmark: {
+				id: item.id,
+				title: item.title,
+				url: item.url,
+				folderId: item.ParentUrl
+			}
+		};
+		
+		// 检查是否有ParentUrl并且不是根节点(0)
+		if (item.ParentUrl && item.ParentUrl !== '0' && item.ParentUrl !== 0) {
+			// 尝试用不同的方式查找父文件夹
+			let parentFolder = folderMap.get(item.ParentUrl.toString());
+			
+			if (!parentFolder) {
+				// 如果找不到，尝试用文件夹标题匹配
+				parentFolder = folderMap.get(item.ParentUrl);
+			}
+			
+			if (parentFolder) {
+				parentFolder.children.push(bookmarkItem);
+				return;
+			}
+		}
+		// 如果没有指定文件夹或文件夹不存在，则添加到根节点
+		rootFolders.push(bookmarkItem);
+	});
+	
+	console.log('构建的书签树:', rootFolders);
+	
+	// 如果没有书签数据，使用默认数据
+	if (rootFolders.length === 0) {
+		return [
+			{
+				key: 1,
+				label: '工作',
+				children: [
+					{ key: 11, label: 'Vue官网', isLeaf: true, bookmark: { id: 11, title: 'Vue官网', url: 'https://vuejs.org', folderId: 1 } },
+					{ key: 12, label: 'Naive UI', isLeaf: true, bookmark: { id: 12, title: 'Naive UI', url: 'https://www.naiveui.com', folderId: 1 } }
+				]
+			},
+			{
+				key: 2,
+				label: '娱乐',
+				children: [
+					{ key: 21, label: 'YouTube', isLeaf: true, bookmark: { id: 21, title: 'YouTube', url: 'https://youtube.com', folderId: 2 } }
+				]
+			}
+		];
+	}
+	
+	return rootFolders;
+}
+
+// 组件挂载时加载书签
+onMounted(() => {
+	refreshBookmarks();
+
+	// 添加全局事件监听器
+	document.addEventListener('mousemove', handleMouseMove);
+	document.addEventListener('mouseup', stopResize);
+});
+
+// 组件卸载时移除事件监听器
+onUnmounted(() => {
+	document.removeEventListener('mousemove', handleMouseMove);
+	document.removeEventListener('mouseup', stopResize);
+});
 
 </script>

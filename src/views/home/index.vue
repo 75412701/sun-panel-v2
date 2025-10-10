@@ -398,7 +398,6 @@ function handleAddItem(itemIconGroupId?: number) {
 					<div class="flex items-center justify-between w-full">
 						<span class="text-lg font-medium">书签列表</span>
 						<NButton type="primary" size="small" @click="navigateToBookmarkManager">
-
 							书签管理
 						</NButton>
 					</div>
