@@ -369,7 +369,7 @@ function handleAddItem(itemIconGroupId?: number) {
 		<!-- 左上角抽屉按钮 - 大众常用样式 -->
 		<div
 			@click="drawerVisible = !drawerVisible"
-			class="fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-full bg-transparent shadow-none text-gray-800 cursor-pointer transition-all hover:bg-gray-100"
+			class="fixed top-4 left-4 z-50 flex items-center  justify-center w-10 h-10 rounded-full bg-transparent shadow-none text-white text-gray-800 cursor-pointer transition-all hover:bg-gray-100"
 		>
 			<svg viewBox="0 0 24 24" class="w-6 h-6" v-if="drawerVisible">
 				<path
