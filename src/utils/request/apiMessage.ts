@@ -2,6 +2,7 @@ import type { ConfigProviderProps } from 'naive-ui'
 import { createDiscreteApi, darkTheme, lightTheme, useOsTheme } from 'naive-ui'
 import { computed, ref } from 'vue'
 import type { Response } from './index'
+import type { ConfigProviderProps } from 'naive-ui'
 import { t } from '@/locales'
 import { useAppStore } from '@/store'
 
@@ -9,7 +10,7 @@ const themeRef = ref<'light' | 'dark'>('light')
 const configProviderPropsRef = computed<ConfigProviderProps>(() => ({
   theme: themeRef.value === 'light' ? lightTheme : darkTheme,
 }))
-export const { message } = createDiscreteApi(['message'], { configProviderProps: configProviderPropsRef })
+export const { message, dialog } = createDiscreteApi(['message', 'dialog'], { configProviderProps: configProviderPropsRef })
 
 export function apiRespErrMsg(res: Response): boolean {
   const appStore = useAppStore()

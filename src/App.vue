@@ -8,13 +8,13 @@ import { onMounted } from 'vue'
 const { theme, themeOverrides } = useTheme()
 const { language } = useLanguage()
 
-// 在组件挂载时动态加载一言脚本
-onMounted(() => {
-  const script = document.createElement('script')
-  script.src = 'https://v1.hitokoto.cn/?encode=js&select=%23hitokoto'
-  script.defer = true
-  document.body.appendChild(script)
-})
+// 移除一言脚本加载，避免没有hitokoto元素时的错误
+// onMounted(() => {
+//   const script = document.createElement('script')
+//   script.src = 'https://v1.hitokoto.cn/?encode=js&select=%23hitokoto'
+//   script.defer = true
+//   document.body.appendChild(script)
+// })
 </script>
 
 <template>

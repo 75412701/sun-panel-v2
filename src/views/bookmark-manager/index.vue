@@ -16,6 +16,18 @@
 			</NButton>
 			<h1 class="text-xl font-bold text-gray-800 flex-1 text-center">书签管理</h1>
 			<NButton
+				@click="createNewBookmark"
+				type="primary"
+				ghost
+				size="small"
+				class="flex items-center gap-1 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+				</svg>
+				新建
+			</NButton>
+			<NButton
 				@click="triggerImportBookmarks"
 				type="success"
 				ghost
@@ -41,12 +53,17 @@
 		<!-- 主内容区域 -->
 		<div class="flex flex-1 overflow-hidden">
 			<!-- 左侧书签树 -->
-			<div :style="{ width: leftPanelWidth + 'px' }" class="border-r p-2 overflow-auto">
+			<div 
+				:style="{ width: leftPanelWidth + 'px' }" 
+				class="border-r p-2 overflow-auto"
+			>
 				<n-tree
 					:data="bookmarkTree"
 					:default-expand-all="true"
 					block-line
 					@update:selected-keys="handleSelect"
+					@contextmenu="handleNTreeContextMenu"
+					ref="treeRef"
 				/>
 			</div>
 
@@ -71,8 +88,8 @@
 				</div>
 
 				<!-- 书签列表 -->
-				<div class="flex-1 p-4 relative overflow-auto">
-					<div class="grid grid-cols-1 gap-2">
+			<div class="flex-1 p-4 relative overflow-auto">
+				<div class="grid grid-cols-1 gap-2">
 						<!-- 如果没有数据，显示空状态提示 -->
 						<div v-if="filteredBookmarks.length === 0" class="text-center py-8 text-gray-400">
 							暂无书签数据
@@ -95,28 +112,69 @@
 			</div>
 		</div>
 
-		<!-- 右键菜单 -->
-		<NDropdown
-			trigger="manual"
-			placement="bottom-start"
-			:x="contextMenu.x"
-			:y="contextMenu.y"
-			:options="contextOptions"
-			:show="contextMenu.show"
-			@select="handleContextSelect"
-			@clickoutside="contextMenu.show = false"
-		/>
-	</div>
+			<!-- 全新的编辑书签对话框 -->
+			<div v-if="isEditDialogOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+				<div class="bg-white p-6 rounded-lg w-96">
+					<h3 class="text-xl font-bold mb-4">{{ isCreateMode ? '新建' : '修改' }}书签</h3>
+					<!-- 只有在创建模式下显示类型选择 -->
+					<div v-if="isCreateMode" class="mb-4">
+						<label class="block mb-2">类型</label>
+						<select 
+							v-model="bookmarkType" 
+							class="w-full px-3 py-2 border border-gray-300 rounded-md"
+						>
+							<option value="bookmark">书签</option>
+							<option value="folder">文件夹</option>
+						</select>
+					</div>
+					<div class="mb-4">
+						<label class="block mb-2">标题</label>
+						<input
+							v-model="currentEditBookmark.title"
+							class="w-full px-3 py-2 border border-gray-300 rounded-md"
+							placeholder="请输入{{ bookmarkType === 'folder' ? '文件夹' : '书签' }}标题"
+						/>
+					</div>
+					<!-- 只有在书签类型下显示URL字段 -->
+					<div v-if="!isCreateMode || bookmarkType === 'bookmark'" class="mb-4">
+						<label class="block mb-2">URL</label>
+						<input
+							v-model="currentEditBookmark.url"
+							class="w-full px-3 py-2 border border-gray-300 rounded-md"
+							placeholder="请输入书签URL"
+						/>
+					</div>
+					<div class="mb-4">
+						<label class="block mb-2">上级文件夹</label>
+						<select v-model="currentEditBookmark.folderId" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+							<option v-for="folder in allFolders" :key="folder.value" :value="folder.value">{{ folder.label }}</option>
+						</select>
+					</div>
+					<div class="flex justify-end gap-2">
+						<button @click="closeEditDialog" class="px-4 py-2 border border-gray-300 rounded-md">取消</button>
+						<button @click="saveBookmarkChanges" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md">确定</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- 全新的右键菜单 -->
+			<div v-if="isContextMenuOpen" :style="contextMenuStyle" class="fixed bg-white shadow-lg rounded-md py-1 z-50 w-40 context-menu">
+				<div @click="handleEditBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">编辑</div>
+				<div @click="handleDeleteBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">删除</div>
+			</div>
+		</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { NTree, NDataTable, NInput, NDropdown, NButton, NMenu, NAlert, useMessage } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, h } from 'vue'
+import { NTree, NDataTable, NInput, NDropdown, NButton, NMenu, NAlert, useMessage, NDialog, NForm, NFormItem, NTooltip } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import type { NTreeInstance } from 'naive-ui'
 import type { ImportBookmarkResult } from '@/utils/bookmarkImportExport'
 import { flattenBookmarkTree } from '@/utils/bookmarkImportExport'
-import { addMultiple as addMultipleBookmarks, getList as getBookmarksList } from '@/api/panel/bookmark'
+import { addMultiple as addMultipleBookmarks, add as addBookmark, getList as getBookmarksList, deletes, update as updateBookmark } from '@/api/panel/bookmark'
 import { t } from '@/locales'
+import { dialog } from '@/utils/request/apiMessage'
 
 const router = useRouter()
 const ms = useMessage()
@@ -200,7 +258,7 @@ const bookmarkTree = ref([
 ])
 
 // 当前选中的文件夹
-const selectedFolder = ref<string | null>(null)
+const selectedFolder = ref<string>('')
 
 
 
@@ -258,21 +316,27 @@ const filteredBookmarks = computed(() => {
 	return bookmarks
 })
 
+// 当前选中的节点键引用
+const selectedKeysRef = ref<(string | number)[]>([]);
+
 // 点击树节点
 function handleSelect(keys: (string | number)[]) {
-	if (keys && keys.length > 0) {
+	// 更新选中的节点键引用
+	selectedKeysRef.value = keys;
+	
+	// 确保类型安全的赋值方式
+	if (keys && Array.isArray(keys) && keys.length > 0) {
 		const key = keys[0];
-		// 无论key是数字还是字符串，都转换为字符串类型
 		selectedFolder.value = String(key);
 	} else {
-		selectedFolder.value = null;
+		selectedFolder.value = '';
 	}
 }
 
 // 搜索时清空选中
 function handleSearch() {
 	if (searchQuery.value) {
-		selectedFolder.value = null
+		selectedFolder.value = ''
 	}
 }
 
@@ -340,44 +404,418 @@ const showMenu = ref(false)
 const selectedRow = ref<Bookmark | null>(null)
 
 
-// 右键菜单状态
-const contextMenu = ref({
-	show: false,
-	x: 0,
-	y: 0,
-	bookmark: null as Bookmark | null,
+// 右键菜单相关状态
+const isContextMenuOpen = ref(false);
+const contextMenuX = ref(0);
+const contextMenuY = ref(0);
+const currentBookmark = ref<Bookmark | null>(null);
+
+// 树组件引用
+const treeRef = ref<NTreeInstance | null>(null);
+
+// 计算属性 - 所有文件夹（用于下拉选择）
+const allFolders = computed(() => {
+    const folders: { label: string; value: string }[] = [{ label: '根目录', value: '0' }];
+    const collectFolders = (nodes: any[]) => {
+        for (const node of nodes) {
+            if (!node.isLeaf) {
+                folders.push({ label: node.label, value: String(node.key) });
+                if (node.children) {
+                    collectFolders(node.children);
+                }
+            }
+        }
+    };
+    collectFolders(bookmarkTree.value);
+    return folders;
 });
 
-const contextOptions = [
-	{ label: "新窗口打开", key: "open" },
-	{ label: "修改", key: "edit" },
-	{ label: "删除", key: "delete" },
-];
-const openContextMenu = (e: MouseEvent, bookmark: Bookmark) => {
-	contextMenu.value = {
-		show: true,
-		x: e.clientX,
-		y: e.clientY,
-		bookmark,
-	};
-};
 
-const handleContextSelect = (key: string) => {
-	const bm = contextMenu.value.bookmark;
-	if (!bm) return;
 
-	switch (key) {
-		case "open":
-			window.open(bm.url, "_blank");
-			break;
-		case "edit":
-			alert(`修改书签：${bm.title}`);
-			break;
-		case "delete":
-			break;
+// 编辑书签相关
+const isEditDialogOpen = ref(false);
+const isCreateMode = ref(false); // 是否为创建模式
+const bookmarkType = ref<'bookmark' | 'folder'>('bookmark'); // 书签类型
+const currentEditBookmark = ref({
+	id: 0,
+	title: '',
+	url: '',
+	folderId: '0',
+});
+
+// 树容器引用
+const treeContainerRef = ref<HTMLElement | null>(null);
+
+// 右键菜单样式
+const contextMenuStyle = computed(() => ({
+	top: `${contextMenuY.value}px`,
+	left: `${contextMenuX.value}px`,
+}));
+
+// 打开右侧列表右键菜单
+function openContextMenu(event: MouseEvent, bookmark: Bookmark) {
+	event.preventDefault();
+	isContextMenuOpen.value = true;
+	contextMenuX.value = event.clientX;
+	contextMenuY.value = event.clientY;
+	currentBookmark.value = bookmark;
+}
+
+// 打开树节点右键菜单
+function openTreeNodeContextMenu(event: MouseEvent, nodeData: any) {
+	event.preventDefault();
+	// 添加空值检查，防止出现undefined错误
+	if (!nodeData) return;
+	// 判断是文件夹还是书签
+	if (nodeData.isLeaf && nodeData.bookmark) {
+		// 书签节点，使用现有的右键菜单逻辑
+		openContextMenu(event, nodeData.bookmark);
+	} else {
+		// 文件夹节点，创建一个临时的bookmark对象来表示文件夹
+		const folderBookmark: Bookmark = {
+			id: nodeData.key,
+			title: nodeData.label,
+			url: '',
+			folderId: nodeData.parentId || '0',
+			isFolder: true
+		};
+		openContextMenu(event, folderBookmark);
 	}
-	contextMenu.value.show = false;
-};
+}
+
+// 处理树容器右键菜单事件
+function handleTreeContainerContextMenu(event: MouseEvent) {
+	event.preventDefault();
+	
+	// 获取点击位置的元素
+	const target = event.target as HTMLElement;
+	
+	// 查找最近的树节点元素
+	const treeNodeEl = target.closest('.n-tree-node-content');
+	if (!treeNodeEl) {
+		return;
+	}
+	
+	// 从节点元素中提取key信息（根据实际的DOM结构调整）
+	const nodeKey = extractNodeKeyFromElement(treeNodeEl);
+	if (!nodeKey) {
+		return;
+	}
+	
+	// 在树数据中查找对应的节点
+	const nodeData = findNodeInTree(bookmarkTree.value, nodeKey);
+	if (nodeData) {
+		openTreeNodeContextMenu(event, nodeData);
+	}
+}
+
+// 从DOM元素中提取节点key
+function extractNodeKeyFromElement(element: HTMLElement): string | number | null {
+	// 这是一个简化的实现，实际需要根据n-tree组件生成的DOM结构来调整
+	// 可能需要查看实际DOM结构来确定如何提取key
+	const nodeContent = element.closest('.n-tree-node');
+	if (nodeContent) {
+		// 假设节点文本就是label，我们可以通过label查找节点
+		const labelElement = nodeContent.querySelector('.n-tree-node-label');
+		if (labelElement) {
+			const label = labelElement.textContent?.trim() || '';
+			// 通过label查找对应的节点
+			return findNodeKeyByLabel(bookmarkTree.value, label);
+		}
+	}
+	return null;
+}
+
+// 通过label查找节点的key
+function findNodeKeyByLabel(treeData: any[], label: string): string | number | null {
+	for (const node of treeData) {
+		if (node.label === label) {
+			return node.key;
+		}
+		if (node.children && node.children.length > 0) {
+			const foundKey = findNodeKeyByLabel(node.children, label);
+			if (foundKey !== null) {
+				return foundKey;
+			}
+		}
+	}
+	return null;
+}
+
+// 处理树组件的右键菜单事件
+function handleTreeContextMenu(event: MouseEvent) {
+	console.log('handleTreeContextMenu called');
+	event.preventDefault();
+}
+
+// 处理n-tree组件的原生右键菜单事件
+function handleNTreeContextMenu(event: MouseEvent) {
+	console.log('handleNTreeContextMenu called');
+	event.preventDefault();
+	
+	// 获取点击的节点元素
+	const target = event.target as HTMLElement;
+	const treeNodeEl = target.closest('.n-tree-node');
+	
+	if (treeNodeEl) {
+		// 从节点元素中提取key信息
+		const nodeKey = extractNodeKeyFromElement(treeNodeEl);
+		if (nodeKey) {
+			// 在树数据中查找对应的节点
+			const nodeData = findNodeInTree(bookmarkTree.value, nodeKey);
+			if (nodeData) {
+				openTreeNodeContextMenu(event, nodeData);
+				return;
+			}
+		}
+	}
+	
+	console.log('Could not determine clicked node');
+}
+
+// 处理容器的右键菜单事件 - 这个会捕获所有在容器内的右键点击
+function handleContainerContextMenu(event: MouseEvent) {
+	console.log('handleContainerContextMenu called');
+	event.preventDefault();
+	
+	// 直接尝试打开右键菜单，使用第一个节点数据
+	if (bookmarkTree.value && bookmarkTree.value.length > 0) {
+		console.log('Opening context menu from container');
+		isContextMenuOpen.value = true;
+		contextMenuX.value = event.clientX;
+		contextMenuY.value = event.clientY;
+		
+		// 创建一个临时的bookmark对象
+		const tempBookmark: Bookmark = {
+			id: bookmarkTree.value[0].key,
+			title: bookmarkTree.value[0].label,
+			url: '',
+			folderId: '0',
+			isFolder: true
+		};
+		currentBookmark.value = tempBookmark;
+	} else {
+		console.log('No tree data available');
+	}
+}
+
+// 通过标签查找节点
+function findNodeByLabel(treeData: any[], label: string): any | null {
+	for (const node of treeData) {
+		if (node.label === label) {
+			return node;
+		}
+		if (node.children && node.children.length > 0) {
+			const foundNode = findNodeByLabel(node.children, label);
+			if (foundNode) {
+				return foundNode;
+			}
+		}
+	}
+	return null;
+}
+
+// 全局点击关闭右键菜单
+function handleGlobalClick(event: MouseEvent) {
+	const contextMenuElement = document.querySelector('.context-menu');
+	if (contextMenuElement && !contextMenuElement.contains(event.target as Node)) {
+		closeContextMenu();
+	}
+}
+
+// 关闭右键菜单
+function closeContextMenu() {
+	isContextMenuOpen.value = false;
+}
+
+// 在树数据中查找指定key的节点
+function findNodeInTree(treeData: any[], key: string | number): any | null {
+	for (const node of treeData) {
+		if (node.key === key) {
+			return node;
+		}
+		if (node.children && node.children.length > 0) {
+			const foundNode = findNodeInTree(node.children, key);
+			if (foundNode) {
+				return foundNode;
+			}
+		}
+	}
+	return null;
+}
+
+// 处理编辑书签
+function handleEditBookmark() {
+	console.log('handleEditBookmark called with bookmark:', currentBookmark.value);
+	if (currentBookmark.value) {
+		currentEditBookmark.value = {
+			...currentBookmark.value,
+		};
+		// 根据是否为文件夹设置书签类型
+		bookmarkType.value = currentBookmark.value.isFolder ? 'folder' : 'bookmark';
+		// 设置为修改模式
+		isCreateMode.value = false;
+		isEditDialogOpen.value = true;
+	}
+	isContextMenuOpen.value = false;
+}
+
+// 处理删除书签
+function handleDeleteBookmark() {
+	console.log('handleDeleteBookmark called with bookmark:', currentBookmark.value);
+	if (currentBookmark.value) {
+		deleteBookmark(currentBookmark.value);
+	}
+	isContextMenuOpen.value = false;
+}
+
+// 创建新书签
+function createNewBookmark() {
+	// 重置表单
+	currentEditBookmark.value = {
+		id: 0,
+		title: '',
+		url: '',
+		folderId: '0',
+	};
+	// 设置为创建模式
+	isCreateMode.value = true;
+	// 默认选择书签类型
+	bookmarkType.value = 'bookmark';
+	// 打开编辑对话框
+	isEditDialogOpen.value = true;
+}
+
+// 关闭编辑对话框
+function closeEditDialog() {
+	isEditDialogOpen.value = false;
+}
+
+// 保存书签修改
+async function saveBookmarkChanges() {
+	try {
+		// 数据验证
+		if (!currentEditBookmark.value.title.trim()) {
+			ms.error('标题不能为空');
+			return;
+		}
+
+		// 如果是创建书签类型，验证URL
+		if ((!isCreateMode.value || bookmarkType.value === 'bookmark') && !currentEditBookmark.value.url.trim()) {
+			ms.error('书签URL不能为空');
+			return;
+		}
+
+		// 添加URL协议检查和补充
+		if ((!isCreateMode.value || bookmarkType.value === 'bookmark') && currentEditBookmark.value.url.trim()) {
+			let url = currentEditBookmark.value.url.trim();
+			if (!url.startsWith('http://') && !url.startsWith('https://')) {
+				url = 'https://' + url;
+				currentEditBookmark.value.url = url;
+			}
+		}
+
+		console.log('saveBookmarkChanges called with data:', currentEditBookmark.value);
+
+		// 根据模式决定调用哪个接口
+		if (isCreateMode.value) {
+			// 创建新模式
+			const createData = {
+				title: currentEditBookmark.value.title,
+				// 注意后端JSON标签是小写的parentUrl
+				parentUrl: currentEditBookmark.value.folderId ? currentEditBookmark.value.folderId.toString() : '0',
+				sort: 9999,
+				lanUrl: '',
+				// IconJson在后端被标记为json:"-",不参与JSON序列化
+			};
+
+			// 根据类型添加相应的字段
+			if (bookmarkType.value === 'folder') {
+				// 文件夹：设置isFolder为1，URL设为标题
+				Object.assign(createData, {
+					isFolder: 1,
+					url: currentEditBookmark.value.title
+				});
+			} else {
+				// 书签：添加URL
+				Object.assign(createData, {
+					isFolder: 0,
+					url: currentEditBookmark.value.url
+				});
+			}
+
+			// 调用添加接口
+			const createResponse = await addBookmark(createData);
+
+			// 检查响应状态
+			if (createResponse && createResponse.code === 0) {
+				await refreshBookmarks();
+				ms.success('创建成功');
+				isEditDialogOpen.value = false;
+				isCreateMode.value = false;
+			} else {
+				ms.error(`创建失败: ${createResponse?.msg || '未知错误'}`);
+			}
+		} else {
+			// 修改模式
+			// 使用update接口更新书签
+			const updateResponse = await updateBookmark({
+				id: Number(currentEditBookmark.value.id),
+				title: currentEditBookmark.value.title,
+				url: currentEditBookmark.value.url,
+				// 注意后端JSON标签是小写的parentUrl
+				parentUrl: currentEditBookmark.value.folderId ? currentEditBookmark.value.folderId.toString() : '0',
+				sort: 9999,
+				lanUrl: '',
+				// IconJson在后端被标记为json:"-",不参与JSON序列化
+			});
+
+				// 检查响应状态
+				if (updateResponse && updateResponse.code === 0) {
+					await refreshBookmarks();
+					ms.success('书签修改成功');
+					isEditDialogOpen.value = false;
+				} else {
+					ms.error(`书签修改失败: ${updateResponse?.msg || '未知错误'}`);
+				}
+			}
+	} catch (error) {
+		console.error('保存书签失败', error);
+		ms.error(`书签修改失败: ${(error as Error).message || '网络错误'}`);
+	}
+}
+
+// 删除书签或文件夹
+async function deleteBookmark(bookmark: Bookmark) {
+	console.log('deleteBookmark called with dialog:', typeof dialog);
+	console.log('dialog object structure:', dialog);
+	// 根据是否为文件夹显示不同的确认消息
+	const confirmMessage = bookmark.isFolder 
+		? `确定要删除文件夹 "${bookmark.title}" 吗？删除后，该文件夹下的所有内容也将被删除。` 
+		: `确定要删除书签 "${bookmark.title}" 吗？`;
+	
+	// 直接使用从apiMessage导入的dialog对象
+	dialog.warning({
+		title: '确认删除',
+		content: confirmMessage,
+		positiveText: '确定',
+		negativeText: '取消',
+		onPositiveClick: async () => {
+			 try {
+				 const response = await deletes([Number(bookmark.id)]);
+				 if (response.code === 0) {
+					 ms.success('删除成功');
+					 // 刷新书签列表
+					 await refreshBookmarks();
+				 } else {
+					 ms.error(`删除失败: ${response.msg}`);
+				 }
+			 } catch (error) {
+				 ms.error(`删除失败: ${(error as Error).message || '未知错误'}`);
+			 }
+		 }
+	 });
+}
 
 // 触发导入书签
 function triggerImportBookmarks() {
@@ -538,13 +976,14 @@ function convertServerTreeToFrontendTree(serverTree: any[]): any[] {
 		}
 
 		const frontendNode = {
-			key: node.id,
-			label: node.title,
-			isLeaf: node.isFolder !== 1,
-			bookmark: bookmarkObj,
-			// 添加原始节点信息用于调试
-			rawNode: node
-		};
+		key: node.id,
+		label: node.title,
+		isLeaf: node.isFolder !== 1,
+		bookmark: bookmarkObj,
+		children: [], // 确保所有节点都有 children 属性
+		// 添加原始节点信息用于调试
+		rawNode: node
+	};
 
 		// 递归处理子节点
 		if (node.children && node.children.length > 0) {
@@ -662,18 +1101,57 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 }
 
 // 组件挂载时加载书签
-onMounted(() => {
-	refreshBookmarks();
+onMounted(async () => {
+	await refreshBookmarks();
 
 	// 添加全局事件监听器
 	document.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', stopResize);
+	document.addEventListener('click', handleGlobalClick);
+
+	// 延迟添加右键菜单事件监听，确保树组件已经渲染完成
+	nextTick(() => {
+		const treeContainer = treeRef.value?.$el;
+		if (treeContainer) {
+			treeContainer.addEventListener('contextmenu', (event) => {
+				// 检查点击的是否是树节点
+				const target = event.target as HTMLElement;
+				const treeNode = target.closest('.n-tree-node-content');
+				if (treeNode) {
+					event.preventDefault();
+					
+					// 从节点元素中提取key信息
+					const nodeKey = extractNodeKeyFromElement(treeNode);
+					let nodeData = null;
+					if (nodeKey) {
+						// 在树数据中查找对应的节点
+						nodeData = findNodeInTree(bookmarkTree.value, nodeKey);
+						if (nodeData) {
+							openTreeNodeContextMenu(event, nodeData);
+						}
+					}
+					// 如果没有通过key找到节点，尝试通过label查找
+					if (!nodeData) {
+						const labelElement = treeNode.querySelector('.n-tree-node-label');
+						if (labelElement) {
+							const label = labelElement.textContent?.trim() || '';
+							const nodeDataByLabel = findNodeByLabel(bookmarkTree.value, label);
+							if (nodeDataByLabel) {
+								openTreeNodeContextMenu(event, nodeDataByLabel);
+							}
+						}
+					}
+				}
+			});
+		}
+	});
 });
 
 // 组件卸载时移除事件监听器
 onUnmounted(() => {
 	document.removeEventListener('mousemove', handleMouseMove);
 	document.removeEventListener('mouseup', stopResize);
+	document.removeEventListener('click', handleGlobalClick);
 });
 
 </script>
