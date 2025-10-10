@@ -57,31 +57,169 @@ const { width } = useWindowSize()
 // 移动端判断
 const isMobile = computed(() => width.value < 768)
 
-// 假数据树
-const treeData = ref([
-	{
-		label: "一级 1",
-		key: "1",
-		children: [
-			{
-				label: "二级 1-1",
-				key: "1-1",
-				children: [
-					{ label: "三级 1-1-1", key: "1-1-1" },
-					{ label: "三级 1-1-2", key: "1-1-2" }
-				]
-			}
-		]
-	},
-	{
-		label: "一级 2",
-		key: "2",
-		children: [
-			{ label: "二级 2-1", key: "2-1" },
-			{ label: "二级 2-2", key: "2-2" }
-		]
-	}
-])
+// 从API导入获取书签列表的函数
+import { getList as getBookmarksList } from '@/api/panel/bookmark'
+
+// 书签数据树
+const treeData = ref<any[]>([])
+
+// 获取书签数据并转换为前端需要的格式
+async function loadBookmarkTree() {
+  try {
+    const response = await getBookmarksList()
+    if (response.code === 0) {
+      // 检查数据结构
+      const data = response.data || []
+      let treeDataResult = []
+      
+      // 检查是否已经是树形结构（直接包含children字段）
+      if (Array.isArray(data) && data.length > 0 && 'children' in data[0]) {
+        // 已经是树形结构，转换为前端需要的格式
+        treeDataResult = convertServerTreeToFrontendTree(data)
+      } else if (data.list && Array.isArray(data.list)) {
+        // 后端返回的是带list字段的结构
+        const serverBookmarks = data.list
+        if (serverBookmarks.length > 0 && 'children' in serverBookmarks[0]) {
+          // list字段中已经是树形结构
+          treeDataResult = convertServerTreeToFrontendTree(serverBookmarks)
+        } else {
+          // 构建树形结构
+          treeDataResult = buildBookmarkTree(serverBookmarks)
+        }
+      } else {
+        // 作为列表数据构建树形结构
+        treeDataResult = buildBookmarkTree(Array.isArray(data) ? data : [])
+      }
+      
+      treeData.value = treeDataResult
+    }
+  } catch (error) {
+    console.error('获取书签数据失败:', error)
+  }
+}
+
+// 将服务器返回的树形结构转换为前端组件需要的格式
+function convertServerTreeToFrontendTree(serverTree: any[]): any[] {
+  const result = serverTree.map(node => {
+    // 处理bookmark对象
+    let bookmarkObj = undefined
+    if (node.isFolder !== 1 && node.url) {
+      // 确保folderId是字符串类型
+      const folderId = node.ParentUrl !== undefined ? String(node.ParentUrl) : null
+      bookmarkObj = {
+        id: node.id,
+        title: node.title,
+        url: node.url,
+        folderId: folderId
+      }
+    }
+
+    const frontendNode = {
+      key: node.id,
+      label: node.title,
+      isLeaf: node.isFolder !== 1,
+      bookmark: bookmarkObj
+    }
+
+    // 递归处理子节点
+    if (node.children && node.children.length > 0) {
+      frontendNode.children = convertServerTreeToFrontendTree(node.children)
+    }
+
+    return frontendNode
+  })
+  return result
+}
+
+// 构建书签树
+function buildBookmarkTree(bookmarks: any[]): any[] {
+  // 首先分离文件夹和书签
+  const folders = bookmarks.filter(b => b.isFolder === 1)
+  const items = bookmarks.filter(b => b.isFolder === 0)
+
+  // 构建文件夹树
+  const rootFolders: any[] = []
+  const folderMap = new Map<string, any>() // 使用字符串键
+
+  // 先创建所有文件夹节点
+  folders.forEach(folder => {
+    const folderNode = {
+      key: folder.id,
+      label: folder.title,
+      children: [],
+      isFolder: true
+    }
+    // 使用id作为map的键
+    folderMap.set(folder.id.toString(), folderNode)
+    // 同时也将文件夹名称作为键，以便处理嵌套关系
+    folderMap.set(folder.title, folderNode)
+  })
+
+  // 将文件夹添加到其父文件夹中
+  folders.forEach(folder => {
+    const folderNode = folderMap.get(folder.id.toString())
+    // 检查是否有ParentUrl并且不是根节点(0)
+    if (folder.ParentUrl && folder.ParentUrl !== '0' && folder.ParentUrl !== 0) {
+      // 尝试用不同的方式查找父文件夹
+      let parentFolder = folderMap.get(folder.ParentUrl.toString())
+
+      if (!parentFolder) {
+        // 如果找不到，尝试用文件夹标题匹配
+        parentFolder = folderMap.get(folder.ParentUrl)
+      }
+
+      if (parentFolder) {
+        parentFolder.children.push(folderNode)
+        return
+      }
+    }
+    // 如果没有父文件夹或父文件夹不存在，则作为根文件夹
+    rootFolders.push(folderNode)
+  })
+
+  // 将书签项添加到对应的文件夹中
+  items.forEach(item => {
+    // 确保folderId是字符串类型
+    const folderId = String(item.ParentUrl || '0')
+    let targetFolder
+
+    if (folderId === '0' || folderId === 'null' || folderId === 'undefined') {
+      // 根目录的书签，创建一个"未分类"文件夹
+      targetFolder = folderMap.get('未分类')
+      if (!targetFolder) {
+        targetFolder = {
+          key: '未分类',
+          label: '未分类',
+          children: [],
+          isFolder: true
+        }
+        folderMap.set('未分类', targetFolder)
+        rootFolders.push(targetFolder)
+      }
+    } else {
+      // 查找对应的文件夹
+      targetFolder = folderMap.get(folderId)
+    }
+
+    if (targetFolder) {
+      // 创建书签节点
+      const bookmarkNode = {
+        key: item.id,
+        label: item.title,
+        isLeaf: true,
+        bookmark: {
+          id: item.id,
+          title: item.title,
+          url: item.url,
+          folderId: folderId
+        }
+      }
+      targetFolder.children.push(bookmarkNode)
+    }
+  })
+
+  return rootFolders
+}
 
 
 
@@ -128,6 +266,36 @@ function handWindowIframeIdLoad(payload: Event) {
 function navigateToBookmarkManager() {
   // 跳转到书签管理页面
   router.push('/bookmark-manager')
+}
+
+// 处理树节点选择事件
+function handleTreeSelect(keys: (string | number)[]) {
+  if (keys && keys.length > 0) {
+    // 查找选中的节点
+    const selectedKey = keys[0]
+    const selectedNode = findNodeByKey(treeData.value, selectedKey)
+    
+    // 如果是书签项（非文件夹），则打开链接
+    if (selectedNode && selectedNode.isLeaf && selectedNode.bookmark && selectedNode.bookmark.url) {
+      window.open(selectedNode.bookmark.url, '_blank')
+    }
+  }
+}
+
+// 根据key查找节点
+function findNodeByKey(nodes: any[], key: string | number): any {
+  for (const node of nodes) {
+    if (node.key === key) {
+      return node
+    }
+    if (node.children && node.children.length > 0) {
+      const found = findNodeByKey(node.children, key)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
 }
 
 function getList() {
@@ -308,6 +476,9 @@ onMounted(() => {
   // 设置标题
   if (panelState.panelConfig.logoText)
     setTitle(panelState.panelConfig.logoText)
+    
+  // 加载书签数据
+  loadBookmarkTree()
 })
 
 // 前端搜索过滤
@@ -402,9 +573,12 @@ function handleAddItem(itemIconGroupId?: number) {
 						</NButton>
 					</div>
 				</template>
-				<NTree :data="treeData" block-line expand-on-click />
-				<!-- 模拟很多数据 -->
-				<div v-for="i in 30" :key="i" class="p-2 text-gray-700">假数据 {{ i }}</div>
+				<NTree 
+					:data="treeData" 
+					block-line 
+					expand-on-click 
+					@update:selected-keys="handleTreeSelect"
+				/>
 			</NDrawerContent>
 		</NDrawer>
 	</div>
