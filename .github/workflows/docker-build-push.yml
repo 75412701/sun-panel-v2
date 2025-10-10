@@ -2,10 +2,6 @@ name: docker-push
 
 on:
   workflow_dispatch:
-  # 暂时取消自动编译，优化后重新开启
-  # push:
-  #   tags:
-  #     - 'v*'
 
 permissions:
   packages: write
@@ -17,33 +13,45 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 1  # 确保完整拉取仓库文件，包括 pnpm-lock.yaml
 
-      # 步骤1：安装 Node.js 22.10.0（自带 npm）
+      # 验证 pnpm-lock.yaml 是否存在（调试用，可保留）
+      - name: Verify pnpm-lock.yaml exists
+        run: |
+          if [ -f "pnpm-lock.yaml" ]; then
+            echo "pnpm-lock.yaml found"
+            cat pnpm-lock.yaml | head -n 5  # 显示文件前5行确认内容
+          else
+            echo "ERROR: pnpm-lock.yaml not found"
+            exit 1
+          fi
+
       - name: Set up Node.js 22.10.0
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
-          cache: 'npm'  # 先缓存 npm（后续用 npm 装 pnpm）
-          cache-dependency-path: 'package.json'  # 基于 package.json 缓存 npm 依赖
+          cache: 'npm'
 
-      # 步骤2：通过 npm 全局安装 pnpm（关键修复：解决 pnpm 找不到的问题）
       - name: Install pnpm globally via npm
         run: |
-          npm install -g pnpm@latest  # 用 Node.js 自带的 npm 安装 pnpm
-          pnpm --version  # 验证 pnpm 安装成功（可选，用于调试）
+          npm install -g pnpm@latest
+          pnpm --version
 
-      # 步骤3：用 pnpm 安装前端依赖（此时 pnpm 已在 PATH 中）
+      # 核心修复：如果锁定文件存在则用 frozen-lockfile，否则不强制（兼容首次构建）
       - name: Install frontend dependencies with pnpm
         run: |
-          pnpm install --frozen-lockfile  # 基于锁定文件安装，确保依赖一致
+          if [ -f "pnpm-lock.yaml" ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install  # 首次构建无锁定文件时使用普通安装
+          fi
 
-      # 步骤4：预执行类型检查和构建（提前暴露错误）
       - name: Run type check and build frontend
         run: |
           pnpm run type-check
           pnpm run build
 
-      # 后续步骤（版本读取、QEMU、Docker 构建）不变
       - name: Read version from file
         id: read_version
         run: echo "APP_VERSION=$(cut -d '|' -f 2 ./service/assets/version)" >> $GITHUB_ENV
