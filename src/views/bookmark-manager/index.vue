@@ -1,6 +1,6 @@
 <template>
 	<div class="flex flex-col h-screen bg-white">
-		<!-- 顶部标题栏（左右两侧共同的顶部） -->
+		<!-- 顶部标题栏 -->
 		<div class="p-4 border-b flex items-center justify-between bg-gray-50">
 			<NButton
 				@click="goBackToHome"
@@ -30,20 +30,12 @@
 			</NButton>
 			<!-- 隐藏的文件输入框 -->
 			<input
-					ref="fileInput"
-					type="file"
-					accept=".html"
-					style="display: none;"
-					@change="handleFileChange"
-				/>
-		</div>
-		<!-- 导入警告提示 -->
-		<div v-if="importWarning.length > 0" class="p-2 bg-yellow-50 border-b border-yellow-200">
-			<NAlert type="warning" :bordered="false" class="text-sm">
-				<div v-for="(text, index) in importWarning" :key="index" class="text-yellow-800">
-					{{ text }}
-				</div>
-			</NAlert>
+				ref="fileInput"
+				type="file"
+				accept=".html"
+				style="display: none;"
+				@change="handleFileChange"
+			/>
 		</div>
 
 		<!-- 主内容区域 -->
@@ -77,9 +69,16 @@
 						@input="handleSearch"
 					/>
 				</div>
-				<!-- 书签表格 -->
-				<div class="flex-1 p-4 relative">
+
+				<!-- 书签列表 -->
+				<div class="flex-1 p-4 relative overflow-auto">
 					<div class="grid grid-cols-1 gap-2">
+						<!-- 如果没有数据，显示空状态提示 -->
+						<div v-if="filteredBookmarks.length === 0" class="text-center py-8 text-gray-400">
+							暂无书签数据
+						</div>
+
+						<!-- 渲染书签列表 -->
 						<div
 							v-for="bookmark in filteredBookmarks"
 							:key="bookmark.id"
@@ -111,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { NTree, NDataTable, NInput, NDropdown, NButton, NMenu, NAlert, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import type { ImportBookmarkResult } from '@/utils/bookmarkImportExport'
@@ -137,6 +136,8 @@ const importObj = ref<ImportBookmarkResult | null>(null)
 function goBackToHome() {
   router.push('/')
 }
+
+
 
 // 开始调整大小
 function startResize(e: MouseEvent) {
@@ -172,7 +173,7 @@ interface Bookmark {
 	id: number
 	title: string
 	url: string
-	folderId?: number
+	folderId?: string | number
 	isFolder?: boolean
 	parentId?: number
 	createTime?: string
@@ -199,43 +200,73 @@ const bookmarkTree = ref([
 ])
 
 // 当前选中的文件夹
-const selectedFolder = ref<number | null>(null)
+const selectedFolder = ref<string | null>(null)
 
-// 所有书签扁平化
+
+
+// 计算属性 - 所有书签
 const allBookmarks = computed<Bookmark[]>(() => {
-	const result: Bookmark[] = []
-	function traverse(nodes: any[], parentId?: number) {
+	const bookmarks: Bookmark[] = []
+
+	// 遍历所有文件夹和书签
+	function traverseBookmarks(nodes: any[], folderId: string) {
 		for (const node of nodes) {
-			if (node.isLeaf && node.bookmark) {
-				result.push(node.bookmark)
-			} else if (node.children) {
-				traverse(node.children, node.key)
+			// 如果是文件夹，继续遍历
+			if (node.children && node.children.length > 0) {
+				traverseBookmarks(node.children, String(node.key))
+			}
+			// 如果是书签，添加到结果集
+			else if (node.isLeaf && node.bookmark) {
+				// 确保每个书签都有folderId属性，并转换为字符串格式便于比较
+				bookmarks.push({
+					...node.bookmark,
+					folderId: String(folderId)
+				})
 			}
 		}
 	}
-	traverse(bookmarkTree.value)
-	return result
+
+	// 开始遍历根节点
+	traverseBookmarks(bookmarkTree.value, '0')
+	return bookmarks
 })
 
 // 搜索
 const searchQuery = ref('')
 const filteredBookmarks = computed(() => {
-	if (searchQuery.value) {
-		return allBookmarks.value.filter(b =>
-			b.title.includes(searchQuery.value) || b.url.includes(searchQuery.value)
+	// 先获取所有书签
+	let bookmarks = allBookmarks.value
+
+	// 1. 应用文件夹过滤
+	if (selectedFolder.value) {
+		const targetFolderId = String(selectedFolder.value)
+		bookmarks = bookmarks.filter(bookmark => {
+			// 直接比较字符串形式的folderId
+			return String(bookmark.folderId) === targetFolderId
+		})
+	}
+
+	// 2. 应用搜索过滤
+	if (searchQuery.value.trim()) {
+		const query = searchQuery.value.toLowerCase()
+		bookmarks = bookmarks.filter(bookmark =>
+			bookmark.title.toLowerCase().includes(query) ||
+			bookmark.url.toLowerCase().includes(query)
 		)
 	}
-	return allBookmarks.value.filter(b => b.folderId === selectedFolder.value)
-})
 
-const columns = [
-	{ title: '标题', key: 'title' },
-	{ title: '网址', key: 'url' }
-]
+	return bookmarks
+})
 
 // 点击树节点
 function handleSelect(keys: (string | number)[]) {
-	selectedFolder.value = typeof keys[0] === 'number' ? keys[0] : null
+	if (keys && keys.length > 0) {
+		const key = keys[0];
+		// 无论key是数字还是字符串，都转换为字符串类型
+		selectedFolder.value = String(key);
+	} else {
+		selectedFolder.value = null;
+	}
 }
 
 // 搜索时清空选中
@@ -243,6 +274,63 @@ function handleSearch() {
 	if (searchQuery.value) {
 		selectedFolder.value = null
 	}
+}
+
+// 根据文件夹ID获取文件夹名称
+function getFolderName(folderId: string): string {
+	// 在bookmarkTree中查找对应的文件夹
+	function findFolder(nodes: any[]): string | null {
+		for (const node of nodes) {
+			if (String(node.key) === folderId) {
+				return node.label
+			}
+			if (node.children && node.children.length > 0) {
+				const found = findFolder(node.children)
+				if (found) {
+					return found
+				}
+			}
+		}
+		return null
+	}
+
+	const folderName = findFolder(bookmarkTree.value)
+	return folderName || '未知文件夹'
+}
+
+// 测试文件夹匹配的状态
+const testFolderId = ref('')
+const testResults = ref<any[]>([])
+
+// 测试文件夹ID匹配
+function testFolderMatch() {
+	if (!testFolderId.value) {
+		testResults.value = []
+		return
+	}
+
+
+	testResults.value = allBookmarks.value.map(bookmark => {
+		// 尝试多种匹配方式
+		const folderIdStr = String(bookmark.folderId || '')
+		const folderIdNum = Number(bookmark.folderId || NaN)
+		const testIdStr = String(testFolderId.value)
+		const testIdNum = Number(testFolderId.value)
+
+		const isStrMatch = folderIdStr === testIdStr
+		const isNumMatch = !isNaN(folderIdNum) && !isNaN(testIdNum) && folderIdNum === testIdNum
+		const isMatch = isStrMatch || isNumMatch
+
+
+		return {
+			...bookmark,
+			isMatch,
+			matchType: isStrMatch ? '字符串匹配' : (isNumMatch ? '数字匹配' : '不匹配')
+		}
+	})
+
+	// 统计匹配数量
+	const matchCount = testResults.value.filter(r => r.isMatch).length
 }
 
 // 右键菜单
@@ -300,7 +388,7 @@ function triggerImportBookmarks() {
 function handleFileChange(event: Event) {
 	const target = event.target as HTMLInputElement;
 	const file = target.files?.[0];
-	
+
 	if (file) {
 		uploadLoading.value = true;
 		const reader = new FileReader();
@@ -321,7 +409,7 @@ function handleFileChange(event: Event) {
 	} else {
 		uploadLoading.value = false;
 	}
-	
+
 	// 清空input的值，以便可以重复选择同一个文件
 	target.value = '';
 }
@@ -329,7 +417,7 @@ function handleFileChange(event: Event) {
 // 验证导入文件
 function importCheck(fileName: string) {
 	importWarning.value = [];
-	
+
 	try {
 		if (fileName.endsWith('.html')) {
 			// 直接将HTML内容传递给后端解析
@@ -370,7 +458,7 @@ async function importBookmarksToServer(bookmarks: any[]) {
 	try {
 		// 扁平化书签树
 		const flatBookmarks = flattenBookmarkTree(bookmarks);
-		
+
 		// 转换为服务器需要的格式
 		const bookmarksToImport = flatBookmarks.map(bookmark => ({
 			title: bookmark.title,
@@ -381,7 +469,7 @@ async function importBookmarksToServer(bookmarks: any[]) {
 			lanUrl: '', // 局域网地址留空
 			IconJson: '' // 图标留空
 		}));
-		
+
 		// 批量导入到服务器
 		const response = await addMultipleBookmarks(bookmarksToImport);
 		if (response.code === 0) {
@@ -405,8 +493,7 @@ async function refreshBookmarks() {
 		if (response.code === 0) {
 			// 检查数据结构，如果已经是树形结构则直接使用
 			const data = response.data || [];
-			console.log('后端返回的数据:', data);
-			
+
 			// 检查是否已经是树形结构（直接包含children字段）
 			let treeData = [];
 			if (Array.isArray(data) && data.length > 0 && 'children' in data[0]) {
@@ -426,7 +513,7 @@ async function refreshBookmarks() {
 				// 作为列表数据构建树形结构
 				treeData = buildBookmarkTree(Array.isArray(data) ? data : []);
 			}
-			
+
 			bookmarkTree.value = treeData;
 		}
 	} catch (error) {
@@ -436,26 +523,37 @@ async function refreshBookmarks() {
 
 // 将服务器返回的树形结构转换为前端组件需要的格式
 function convertServerTreeToFrontendTree(serverTree: any[]): any[] {
-	return serverTree.map(node => {
+	const result = serverTree.map(node => {
+		// 处理bookmark对象
+		let bookmarkObj = undefined;
+		if (node.isFolder !== 1 && node.url) {
+			// 确保folderId是字符串类型，以便与selectedFolder.value进行比较
+			const folderId = node.ParentUrl !== undefined ? String(node.ParentUrl) : null;
+			bookmarkObj = {
+				id: node.id,
+				title: node.title,
+				url: node.url,
+				folderId: folderId
+			};
+		}
+
 		const frontendNode = {
 			key: node.id,
 			label: node.title,
 			isLeaf: node.isFolder !== 1,
-			bookmark: node.isFolder !== 1 ? {
-				id: node.id,
-				title: node.title,
-				url: node.url,
-				folderId: node.ParentUrl
-			} : undefined
+			bookmark: bookmarkObj,
+			// 添加原始节点信息用于调试
+			rawNode: node
 		};
-		
+
 		// 递归处理子节点
 		if (node.children && node.children.length > 0) {
 			frontendNode.children = convertServerTreeToFrontendTree(node.children);
 		}
-		
+
 		return frontendNode;
 	});
+	return result;
 }
 
 // 构建书签树
@@ -463,15 +561,13 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 	// 首先分离文件夹和书签
 	const folders = bookmarks.filter(b => b.isFolder === 1);
 	const items = bookmarks.filter(b => b.isFolder === 0);
-	
+
 	// 构建文件夹树
 	const rootFolders: any[] = [];
 	const folderMap = new Map<string, any>(); // 使用字符串键，因为ParentUrl可能是字符串
-	
-	console.log('后端返回的书签数据:', bookmarks);
-	console.log('分离出的文件夹:', folders);
-	console.log('分离出的书签:', items);
-	
+
+
+
 	// 先创建所有文件夹节点
 	folders.forEach(folder => {
 		const folderNode = {
@@ -485,7 +581,7 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 		// 同时也将文件夹名称作为键，以便处理嵌套关系
 		folderMap.set(folder.title, folderNode);
 	});
-	
+
 	// 将文件夹添加到其父文件夹中
 	folders.forEach(folder => {
 		const folderNode = folderMap.get(folder.id.toString());
@@ -493,12 +589,12 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 		if (folder.ParentUrl && folder.ParentUrl !== '0' && folder.ParentUrl !== 0) {
 			// 尝试用不同的方式查找父文件夹
 			let parentFolder = folderMap.get(folder.ParentUrl.toString());
-			
+
 			if (!parentFolder) {
 				// 如果找不到，尝试用文件夹标题匹配
 				parentFolder = folderMap.get(folder.ParentUrl);
 			}
-			
+
 			if (parentFolder) {
 				parentFolder.children.push(folderNode);
 				return;
@@ -507,7 +603,7 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 		// 如果没有父文件夹或者父文件夹不存在，则添加到根节点
 		rootFolders.push(folderNode);
 	});
-	
+
 	// 将书签添加到对应的文件夹中
 	items.forEach(item => {
 		const bookmarkItem = {
@@ -518,20 +614,21 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 				id: item.id,
 				title: item.title,
 				url: item.url,
-				folderId: item.ParentUrl
+				// 确保folderId始终是字符串类型
+				folderId: item.ParentUrl !== undefined ? String(item.ParentUrl) : null
 			}
 		};
-		
+
 		// 检查是否有ParentUrl并且不是根节点(0)
 		if (item.ParentUrl && item.ParentUrl !== '0' && item.ParentUrl !== 0) {
 			// 尝试用不同的方式查找父文件夹
 			let parentFolder = folderMap.get(item.ParentUrl.toString());
-			
+
 			if (!parentFolder) {
 				// 如果找不到，尝试用文件夹标题匹配
 				parentFolder = folderMap.get(item.ParentUrl);
 			}
-			
+
 			if (parentFolder) {
 				parentFolder.children.push(bookmarkItem);
 				return;
@@ -540,9 +637,6 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 		// 如果没有指定文件夹或文件夹不存在，则添加到根节点
 		rootFolders.push(bookmarkItem);
 	});
-	
-	console.log('构建的书签树:', rootFolders);
-	
 	// 如果没有书签数据，使用默认数据
 	if (rootFolders.length === 0) {
 		return [
@@ -563,7 +657,7 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 			}
 		];
 	}
-	
+
 	return rootFolders;
 }
 
