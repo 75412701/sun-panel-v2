@@ -511,17 +511,12 @@ function handleTreeContainerContextMenu(event: MouseEvent) {
 
 // 从DOM元素中提取节点key
 function extractNodeKeyFromElement(element: HTMLElement): string | number | null {
-	// 这是一个简化的实现，实际需要根据n-tree组件生成的DOM结构来调整
-	// 可能需要查看实际DOM结构来确定如何提取key
-	const nodeContent = element.closest('.n-tree-node');
-	if (nodeContent) {
-		// 假设节点文本就是label，我们可以通过label查找节点
-		const labelElement = nodeContent.querySelector('.n-tree-node-label');
-		if (labelElement) {
-			const label = labelElement.textContent?.trim() || '';
-			// 通过label查找对应的节点
-			return findNodeKeyByLabel(bookmarkTree.value, label);
-		}
+	// 传入的element已经是.n-tree-node元素，直接查找label
+	const labelElement = element.querySelector('.n-tree-node-label');
+	if (labelElement) {
+		const label = labelElement.textContent?.trim() || '';
+		// 通过label查找对应的节点
+		return findNodeKeyByLabel(bookmarkTree.value, label);
 	}
 	return null;
 }
@@ -558,13 +553,33 @@ function handleNTreeContextMenu(event: MouseEvent) {
 	const treeNodeEl = target.closest('.n-tree-node');
 	
 	if (treeNodeEl) {
-		// 从节点元素中提取key信息
-		const nodeKey = extractNodeKeyFromElement(treeNodeEl);
-		if (nodeKey) {
-			// 在树数据中查找对应的节点
-			const nodeData = findNodeInTree(bookmarkTree.value, nodeKey);
-			if (nodeData) {
-				openTreeNodeContextMenu(event, nodeData);
+		// 尝试直接从文本内容获取节点信息
+		const labelElement = treeNodeEl.querySelector('.n-tree-node-label');
+		if (labelElement) {
+			const label = labelElement.textContent?.trim() || '';
+			console.log('Found label:', label);
+			
+			// 尝试直接通过标签查找节点
+			const nodeDataByLabel = findNodeByLabel(bookmarkTree.value, label);
+			if (nodeDataByLabel) {
+				console.log('Found node by label:', nodeDataByLabel);
+				// 直接打开右键菜单，跳过额外的节点验证
+				isContextMenuOpen.value = true;
+				contextMenuX.value = event.clientX;
+				contextMenuY.value = event.clientY;
+				
+				// 直接创建临时bookmark对象
+				if (nodeDataByLabel.isLeaf && nodeDataByLabel.bookmark) {
+					currentBookmark.value = nodeDataByLabel.bookmark;
+				} else {
+					currentBookmark.value = {
+						id: nodeDataByLabel.key,
+						title: nodeDataByLabel.label,
+						url: '',
+						folderId: '0',
+						isFolder: true
+					};
+				}
 				return;
 			}
 		}
@@ -1108,43 +1123,6 @@ onMounted(async () => {
 	document.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', stopResize);
 	document.addEventListener('click', handleGlobalClick);
-
-	// 延迟添加右键菜单事件监听，确保树组件已经渲染完成
-	nextTick(() => {
-		const treeContainer = treeRef.value?.$el;
-		if (treeContainer) {
-			treeContainer.addEventListener('contextmenu', (event) => {
-				// 检查点击的是否是树节点
-				const target = event.target as HTMLElement;
-				const treeNode = target.closest('.n-tree-node-content');
-				if (treeNode) {
-					event.preventDefault();
-					
-					// 从节点元素中提取key信息
-					const nodeKey = extractNodeKeyFromElement(treeNode);
-					let nodeData = null;
-					if (nodeKey) {
-						// 在树数据中查找对应的节点
-						nodeData = findNodeInTree(bookmarkTree.value, nodeKey);
-						if (nodeData) {
-							openTreeNodeContextMenu(event, nodeData);
-						}
-					}
-					// 如果没有通过key找到节点，尝试通过label查找
-					if (!nodeData) {
-						const labelElement = treeNode.querySelector('.n-tree-node-label');
-						if (labelElement) {
-							const label = labelElement.textContent?.trim() || '';
-							const nodeDataByLabel = findNodeByLabel(bookmarkTree.value, label);
-							if (nodeDataByLabel) {
-								openTreeNodeContextMenu(event, nodeDataByLabel);
-							}
-						}
-					}
-				}
-			});
-		}
-	});
 });
 
 // 组件卸载时移除事件监听器

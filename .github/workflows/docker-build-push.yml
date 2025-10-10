@@ -19,6 +19,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      # 关键步骤1：设置 Node.js 版本为 22.10.0（与你本地一致）
+      - name: Set up Node.js 22.10.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.10.0'  # 强制指定与本地相同的 Node 版本
+          cache: 'pnpm'            # 缓存 pnpm 依赖，加速构建
+          cache-dependency-path: 'pnpm-lock.yaml'  # 基于锁定文件缓存，确保依赖一致
+
+      # 关键步骤2：安装 pnpm（与本地包管理器一致）并安装前端依赖
+      - name: Install pnpm and frontend dependencies
+        run: |
+          npm install -g pnpm@latest  # 安装最新版 pnpm（与本地保持一致）
+          pnpm install --frozen-lockfile  # 基于锁定文件安装，禁止版本漂移
+
+      # 关键步骤3：本地预执行类型检查和构建（提前暴露错误，避免 Docker 内报错）
+      - name: Run type check and build frontend
+        run: |
+          pnpm run type-check  # 执行类型检查，与打包逻辑一致
+          pnpm run build       # 本地构建前端，确保构建产物正常（可选，可加速 Docker 内构建）
+
       - name: Read version from file
         id: read_version
         run: echo "APP_VERSION=$(cut -d '|' -f 2 ./service/assets/version)" >> $GITHUB_ENV
@@ -41,12 +61,16 @@ jobs:
         id: lowercase
         run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
+      # 关键优化：Docker 构建时传递 Node 版本参数，确保容器内也使用 22.10.0
       - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .  # 在项目根目录找 Dockerfile 构建
           platforms: linux/amd64,linux/arm64
           push: true
+          # 传递构建参数：指定 Node 版本（需 Dockerfile 配合接收）
+          build-args: |
+            NODE_VERSION=22.10.0
           # 镜像标签格式：ghcr.io/小写用户名/镜像名:版本 和 ghcr.io/小写用户名/镜像名:latest
           tags: |
             ghcr.io/${{ steps.lowercase.outputs.owner }}/sun-panel-v2:${{ env.APP_VERSION }}
