@@ -53,8 +53,8 @@
 		<!-- 主内容区域 -->
 		<div class="flex flex-1 overflow-hidden">
 			<!-- 左侧书签树 -->
-			<div 
-				:style="{ width: leftPanelWidth + 'px' }" 
+			<div
+				:style="{ width: leftPanelWidth + 'px' }"
 				class="border-r p-2 overflow-auto"
 			>
 				<n-tree
@@ -119,8 +119,8 @@
 					<!-- 只有在创建模式下显示类型选择 -->
 					<div v-if="isCreateMode" class="mb-4">
 						<label class="block mb-2">类型</label>
-						<select 
-							v-model="bookmarkType" 
+						<select
+							v-model="bookmarkType"
 							class="w-full px-3 py-2 border border-gray-300 rounded-md"
 						>
 							<option value="bookmark">书签</option>
@@ -166,12 +166,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch, h } from 'vue'
-import { NTree, NDataTable, NInput, NDropdown, NButton, NMenu, NAlert, useMessage, NDialog, NForm, NFormItem, NTooltip } from 'naive-ui'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { NTree, NInput, NButton, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import type { NTreeInstance } from 'naive-ui'
 import type { ImportBookmarkResult } from '@/utils/bookmarkImportExport'
-import { flattenBookmarkTree } from '@/utils/bookmarkImportExport'
 import { addMultiple as addMultipleBookmarks, add as addBookmark, getList as getBookmarksList, deletes, update as updateBookmark } from '@/api/panel/bookmark'
 import { t } from '@/locales'
 import { dialog } from '@/utils/request/apiMessage'
@@ -323,7 +322,7 @@ const selectedKeysRef = ref<(string | number)[]>([]);
 function handleSelect(keys: (string | number)[]) {
 	// 更新选中的节点键引用
 	selectedKeysRef.value = keys;
-	
+
 	// 确保类型安全的赋值方式
 	if (keys && Array.isArray(keys) && keys.length > 0) {
 		const key = keys[0];
@@ -340,68 +339,6 @@ function handleSearch() {
 	}
 }
 
-// 根据文件夹ID获取文件夹名称
-function getFolderName(folderId: string): string {
-	// 在bookmarkTree中查找对应的文件夹
-	function findFolder(nodes: any[]): string | null {
-		for (const node of nodes) {
-			if (String(node.key) === folderId) {
-				return node.label
-			}
-			if (node.children && node.children.length > 0) {
-				const found = findFolder(node.children)
-				if (found) {
-					return found
-				}
-			}
-		}
-		return null
-	}
-
-	const folderName = findFolder(bookmarkTree.value)
-	return folderName || '未知文件夹'
-}
-
-// 测试文件夹匹配的状态
-const testFolderId = ref('')
-const testResults = ref<any[]>([])
-
-// 测试文件夹ID匹配
-function testFolderMatch() {
-	if (!testFolderId.value) {
-		testResults.value = []
-		return
-	}
-
-
-	testResults.value = allBookmarks.value.map(bookmark => {
-		// 尝试多种匹配方式
-		const folderIdStr = String(bookmark.folderId || '')
-		const folderIdNum = Number(bookmark.folderId || NaN)
-		const testIdStr = String(testFolderId.value)
-		const testIdNum = Number(testFolderId.value)
-
-		const isStrMatch = folderIdStr === testIdStr
-		const isNumMatch = !isNaN(folderIdNum) && !isNaN(testIdNum) && folderIdNum === testIdNum
-		const isMatch = isStrMatch || isNumMatch
-
-
-		return {
-			...bookmark,
-			isMatch,
-			matchType: isStrMatch ? '字符串匹配' : (isNumMatch ? '数字匹配' : '不匹配')
-		}
-	})
-
-	// 统计匹配数量
-	const matchCount = testResults.value.filter(r => r.isMatch).length
-}
-
-// 右键菜单
-const menuX = ref(0)
-const menuY = ref(0)
-const showMenu = ref(false)
-const selectedRow = ref<Bookmark | null>(null)
 
 
 // 右键菜单相关状态
@@ -443,8 +380,6 @@ const currentEditBookmark = ref({
 	folderId: '0',
 });
 
-// 树容器引用
-const treeContainerRef = ref<HTMLElement | null>(null);
 
 // 右键菜单样式
 const contextMenuStyle = computed(() => ({
@@ -483,31 +418,6 @@ function openTreeNodeContextMenu(event: MouseEvent, nodeData: any) {
 	}
 }
 
-// 处理树容器右键菜单事件
-function handleTreeContainerContextMenu(event: MouseEvent) {
-	event.preventDefault();
-	
-	// 获取点击位置的元素
-	const target = event.target as HTMLElement;
-	
-	// 查找最近的树节点元素
-	const treeNodeEl = target.closest('.n-tree-node-content');
-	if (!treeNodeEl) {
-		return;
-	}
-	
-	// 从节点元素中提取key信息（根据实际的DOM结构调整）
-	const nodeKey = extractNodeKeyFromElement(treeNodeEl);
-	if (!nodeKey) {
-		return;
-	}
-	
-	// 在树数据中查找对应的节点
-	const nodeData = findNodeInTree(bookmarkTree.value, nodeKey);
-	if (nodeData) {
-		openTreeNodeContextMenu(event, nodeData);
-	}
-}
 
 // 从DOM元素中提取节点key
 function extractNodeKeyFromElement(element: HTMLElement): string | number | null {
@@ -537,28 +447,23 @@ function findNodeKeyByLabel(treeData: any[], label: string): string | number | n
 	return null;
 }
 
-// 处理树组件的右键菜单事件
-function handleTreeContextMenu(event: MouseEvent) {
-	console.log('handleTreeContextMenu called');
-	event.preventDefault();
-}
 
 // 处理n-tree组件的原生右键菜单事件
 function handleNTreeContextMenu(event: MouseEvent) {
 	console.log('handleNTreeContextMenu called');
 	event.preventDefault();
-	
+
 	// 获取点击的节点元素
 	const target = event.target as HTMLElement;
 	const treeNodeEl = target.closest('.n-tree-node');
-	
+
 	if (treeNodeEl) {
 		// 尝试直接从文本内容获取节点信息
 		const labelElement = treeNodeEl.querySelector('.n-tree-node-label');
 		if (labelElement) {
 			const label = labelElement.textContent?.trim() || '';
 			console.log('Found label:', label);
-			
+
 			// 尝试直接通过标签查找节点
 			const nodeDataByLabel = findNodeByLabel(bookmarkTree.value, label);
 			if (nodeDataByLabel) {
@@ -567,7 +472,7 @@ function handleNTreeContextMenu(event: MouseEvent) {
 				isContextMenuOpen.value = true;
 				contextMenuX.value = event.clientX;
 				contextMenuY.value = event.clientY;
-				
+
 				// 直接创建临时bookmark对象
 				if (nodeDataByLabel.isLeaf && nodeDataByLabel.bookmark) {
 					currentBookmark.value = nodeDataByLabel.bookmark;
@@ -584,35 +489,10 @@ function handleNTreeContextMenu(event: MouseEvent) {
 			}
 		}
 	}
-	
+
 	console.log('Could not determine clicked node');
 }
 
-// 处理容器的右键菜单事件 - 这个会捕获所有在容器内的右键点击
-function handleContainerContextMenu(event: MouseEvent) {
-	console.log('handleContainerContextMenu called');
-	event.preventDefault();
-	
-	// 直接尝试打开右键菜单，使用第一个节点数据
-	if (bookmarkTree.value && bookmarkTree.value.length > 0) {
-		console.log('Opening context menu from container');
-		isContextMenuOpen.value = true;
-		contextMenuX.value = event.clientX;
-		contextMenuY.value = event.clientY;
-		
-		// 创建一个临时的bookmark对象
-		const tempBookmark: Bookmark = {
-			id: bookmarkTree.value[0].key,
-			title: bookmarkTree.value[0].label,
-			url: '',
-			folderId: '0',
-			isFolder: true
-		};
-		currentBookmark.value = tempBookmark;
-	} else {
-		console.log('No tree data available');
-	}
-}
 
 // 通过标签查找节点
 function findNodeByLabel(treeData: any[], label: string): any | null {
@@ -643,21 +523,6 @@ function closeContextMenu() {
 	isContextMenuOpen.value = false;
 }
 
-// 在树数据中查找指定key的节点
-function findNodeInTree(treeData: any[], key: string | number): any | null {
-	for (const node of treeData) {
-		if (node.key === key) {
-			return node;
-		}
-		if (node.children && node.children.length > 0) {
-			const foundNode = findNodeInTree(node.children, key);
-			if (foundNode) {
-				return foundNode;
-			}
-		}
-	}
-	return null;
-}
 
 // 处理编辑书签
 function handleEditBookmark() {
@@ -805,10 +670,10 @@ async function deleteBookmark(bookmark: Bookmark) {
 	console.log('deleteBookmark called with dialog:', typeof dialog);
 	console.log('dialog object structure:', dialog);
 	// 根据是否为文件夹显示不同的确认消息
-	const confirmMessage = bookmark.isFolder 
-		? `确定要删除文件夹 "${bookmark.title}" 吗？删除后，该文件夹下的所有内容也将被删除。` 
+	const confirmMessage = bookmark.isFolder
+		? `确定要删除文件夹 "${bookmark.title}" 吗？删除后，该文件夹下的所有内容也将被删除。`
 		: `确定要删除书签 "${bookmark.title}" 吗？`;
-	
+
 	// 直接使用从apiMessage导入的dialog对象
 	dialog.warning({
 		title: '确认删除',
@@ -905,39 +770,6 @@ async function importBookmarksToServerWithHTML(htmlContent: string) {
 	}
 }
 
-// 旧的导入方法（保留用于向后兼容）
-async function importBookmarksToServer(bookmarks: any[]) {
-	uploadLoading.value = true;
-	try {
-		// 扁平化书签树
-		const flatBookmarks = flattenBookmarkTree(bookmarks);
-
-		// 转换为服务器需要的格式
-		const bookmarksToImport = flatBookmarks.map(bookmark => ({
-			title: bookmark.title,
-			url: bookmark.url,
-			parentId: bookmark.folderId || 0,
-			isFolder: bookmark.isFolder ? 1 : 0,
-			sort: 9999, // 默认排序
-			lanUrl: '', // 局域网地址留空
-			IconJson: '' // 图标留空
-		}));
-
-		// 批量导入到服务器
-		const response = await addMultipleBookmarks(bookmarksToImport);
-		if (response.code === 0) {
-			ms.success(`${t('common.success')}，成功导入 ${bookmarksToImport.length} 个书签`);
-			// 刷新书签列表
-			await refreshBookmarks();
-		} else {
-			ms.error(`${t('common.failed')}: ${response.msg}`);
-		}
-	} catch (error) {
-		ms.error(`${t('common.failed')}: ${(error as Error).message || t('common.unknownError')}`);
-	} finally {
-		uploadLoading.value = false;
-	}
-}
 
 // 刷新书签列表
 async function refreshBookmarks() {
