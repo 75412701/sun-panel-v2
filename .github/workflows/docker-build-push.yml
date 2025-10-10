@@ -13,49 +13,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 1  # 确保完整拉取仓库文件，包括 pnpm-lock.yaml
 
-      # 验证 pnpm-lock.yaml 是否存在（调试用，可保留）
-      - name: Verify pnpm-lock.yaml exists
+      # 验证 npm 锁定文件存在（npm 生成的是 package-lock.json）
+      - name: Verify package-lock.json exists
         run: |
-          if [ -f "pnpm-lock.yaml" ]; then
-            echo "pnpm-lock.yaml found"
-            cat pnpm-lock.yaml | head -n 5  # 显示文件前5行确认内容
+          if [ -f "package-lock.json" ]; then
+            echo "package-lock.json found. File size: $(du -h package-lock.json)"
           else
-            echo "ERROR: pnpm-lock.yaml not found"
+            echo "ERROR: package-lock.json not found (npm 锁定文件缺失)"
             exit 1
           fi
 
+      # 设置与本地一致的 Node.js 22.10.0（自带 npm 10.9.0）
       - name: Set up Node.js 22.10.0
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
-          cache: 'npm'
+          cache: 'npm'  # 缓存 npm 依赖
+          cache-dependency-path: 'package-lock.json'  # 基于 npm 锁定文件缓存
 
-      - name: Install pnpm globally via npm
+      # 使用 npm 安装依赖（与本地一致）
+      - name: Install dependencies with npm
+        run: npm ci  # 等同于 npm install --frozen-lockfile，严格遵循锁定文件
+
+      # 执行类型检查和构建（使用 npm 运行脚本）
+      - name: Run type check and build
         run: |
-          npm install -g pnpm@latest
-          pnpm --version
+          npm run type-check
+          npm run build
 
-      # 核心修复：如果锁定文件存在则用 frozen-lockfile，否则不强制（兼容首次构建）
-      - name: Install frontend dependencies with pnpm
-        run: |
-          if [ -f "pnpm-lock.yaml" ]; then
-            pnpm install --frozen-lockfile
-          else
-            pnpm install  # 首次构建无锁定文件时使用普通安装
-          fi
-
-      - name: Run type check and build frontend
-        run: |
-          pnpm run type-check
-          pnpm run build
-
+      # 读取版本信息（保持不变）
       - name: Read version from file
         id: read_version
         run: echo "APP_VERSION=$(cut -d '|' -f 2 ./service/assets/version)" >> $GITHUB_ENV
 
+      # Docker 构建相关步骤（保持不变）
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
