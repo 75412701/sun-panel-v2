@@ -277,7 +277,7 @@ export function flattenBookmarkTree(bookmarks: BookmarkFolder[]): (BookmarkItem 
         // 包含文件夹本身
         result.push({
           ...folder,
-          parentId: parentId
+          folderId: parentId
         })
         // 继续遍历子节点
         if (folder.children) {

@@ -1,4 +1,3 @@
-import type { ConfigProviderProps } from 'naive-ui'
 import { createDiscreteApi, darkTheme, lightTheme, useOsTheme } from 'naive-ui'
 import { computed, ref } from 'vue'
 import type { Response } from './index'

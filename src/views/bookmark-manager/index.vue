@@ -169,8 +169,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { NTree, NInput, NButton, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import type { NTreeInstance } from 'naive-ui'
-import type { ImportBookmarkResult } from '@/utils/bookmarkImportExport'
 import { addMultiple as addMultipleBookmarks, add as addBookmark, getList as getBookmarksList, deletes, update as updateBookmark } from '@/api/panel/bookmark'
 import { t } from '@/locales'
 import { dialog } from '@/utils/request/apiMessage'
@@ -187,7 +185,6 @@ const fileInput = ref<HTMLInputElement>()
 const uploadLoading = ref(false)
 const jsonData = ref<string | null>(null)
 const importWarning = ref<string[]>([])
-const importObj = ref<ImportBookmarkResult | null>(null)
 
 // 返回首页
 function goBackToHome() {
@@ -348,7 +345,7 @@ const contextMenuY = ref(0);
 const currentBookmark = ref<Bookmark | null>(null);
 
 // 树组件引用
-const treeRef = ref<NTreeInstance | null>(null);
+const treeRef = ref<InstanceType<typeof NTree> | null>(null);
 
 // 计算属性 - 所有文件夹（用于下拉选择）
 const allFolders = computed(() => {
@@ -377,8 +374,8 @@ const currentEditBookmark = ref({
 	id: 0,
 	title: '',
 	url: '',
-	folderId: '0',
-});
+	folderId: '0' as string | number | undefined,
+} as { id: number; title: string; url: string; folderId?: string | number | undefined; });
 
 
 // 右键菜单样式
@@ -396,56 +393,8 @@ function openContextMenu(event: MouseEvent, bookmark: Bookmark) {
 	currentBookmark.value = bookmark;
 }
 
-// 打开树节点右键菜单
-function openTreeNodeContextMenu(event: MouseEvent, nodeData: any) {
-	event.preventDefault();
-	// 添加空值检查，防止出现undefined错误
-	if (!nodeData) return;
-	// 判断是文件夹还是书签
-	if (nodeData.isLeaf && nodeData.bookmark) {
-		// 书签节点，使用现有的右键菜单逻辑
-		openContextMenu(event, nodeData.bookmark);
-	} else {
-		// 文件夹节点，创建一个临时的bookmark对象来表示文件夹
-		const folderBookmark: Bookmark = {
-			id: nodeData.key,
-			title: nodeData.label,
-			url: '',
-			folderId: nodeData.parentId || '0',
-			isFolder: true
-		};
-		openContextMenu(event, folderBookmark);
-	}
-}
 
 
-// 从DOM元素中提取节点key
-function extractNodeKeyFromElement(element: HTMLElement): string | number | null {
-	// 传入的element已经是.n-tree-node元素，直接查找label
-	const labelElement = element.querySelector('.n-tree-node-label');
-	if (labelElement) {
-		const label = labelElement.textContent?.trim() || '';
-		// 通过label查找对应的节点
-		return findNodeKeyByLabel(bookmarkTree.value, label);
-	}
-	return null;
-}
-
-// 通过label查找节点的key
-function findNodeKeyByLabel(treeData: any[], label: string): string | number | null {
-	for (const node of treeData) {
-		if (node.label === label) {
-			return node.key;
-		}
-		if (node.children && node.children.length > 0) {
-			const foundKey = findNodeKeyByLabel(node.children, label);
-			if (foundKey !== null) {
-				return foundKey;
-			}
-		}
-	}
-	return null;
-}
 
 
 // 处理n-tree组件的原生右键菜单事件
@@ -602,10 +551,13 @@ async function saveBookmarkChanges() {
 			// 创建新模式
 			const createData = {
 				title: currentEditBookmark.value.title,
+				url: '',
 				// 注意后端JSON标签是小写的parentUrl
 				parentUrl: currentEditBookmark.value.folderId ? currentEditBookmark.value.folderId.toString() : '0',
 				sort: 9999,
 				lanUrl: '',
+				icon: null,
+				openMethod: 0,
 				// IconJson在后端被标记为json:"-",不参与JSON序列化
 			};
 
@@ -643,10 +595,10 @@ async function saveBookmarkChanges() {
 				id: Number(currentEditBookmark.value.id),
 				title: currentEditBookmark.value.title,
 				url: currentEditBookmark.value.url,
-				// 注意后端JSON标签是小写的parentUrl
-				parentUrl: currentEditBookmark.value.folderId ? currentEditBookmark.value.folderId.toString() : '0',
 				sort: 9999,
 				lanUrl: '',
+				icon: null,
+				openMethod: 0,
 				// IconJson在后端被标记为json:"-",不参与JSON序列化
 			});
 
@@ -755,9 +707,9 @@ async function importBookmarksToServerWithHTML(htmlContent: string) {
 	uploadLoading.value = true;
 	try {
 		// 直接将HTML内容传递给后端
-		const response = await addMultipleBookmarks({ htmlContent });
+		const response = await addMultipleBookmarks({ htmlContent } as any);
 		if (response.code === 0) {
-			ms.success(`${t('common.success')}，成功导入 ${response.data.count} 个书签`);
+			ms.success(`${t('common.success')}，成功导入 ${(response.data as any).count} 个书签`);
 			// 刷新书签列表
 			await refreshBookmarks();
 		} else {
@@ -777,7 +729,7 @@ async function refreshBookmarks() {
 		const response = await getBookmarksList();
 		if (response.code === 0) {
 			// 检查数据结构，如果已经是树形结构则直接使用
-			const data = response.data || [];
+			const data: any = response.data || [];
 
 			// 检查是否已经是树形结构（直接包含children字段）
 			let treeData = [];
@@ -827,7 +779,7 @@ function convertServerTreeToFrontendTree(serverTree: any[]): any[] {
 		label: node.title,
 		isLeaf: node.isFolder !== 1,
 		bookmark: bookmarkObj,
-		children: [], // 确保所有节点都有 children 属性
+		children: [] as any[], // 明确指定类型为 any[]
 		// 添加原始节点信息用于调试
 		rawNode: node
 	};

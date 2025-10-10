@@ -28,6 +28,7 @@ const dialog = useDialog()
 const panelState = usePanelState()
 const authStore = useAuthStore()
 
+
 const scrollContainerRef = ref<HTMLElement | undefined>(undefined)
 
 const editItemInfoShow = ref<boolean>(false)
@@ -44,6 +45,19 @@ const dropdownMenuY = ref(0)
 const dropdownShow = ref(false)
 const currentRightSelectItem = ref<Panel.ItemInfo | null>(null)
 const currentAddItenIconGroupId = ref<number | undefined>()
+// 1. 定义树形节点的接口（包含 children）
+interface TreeItem {
+	key: string | number;
+	label: string;
+	isLeaf: boolean;
+	bookmark?: {
+		id: number;
+		title: string;
+		url: string;
+		folderId: string | null;
+	};
+	children?: TreeItem[]; // 补充 children 属性（可选，叶子节点没有）
+}
 
 const settingModalShow = ref(false)
 
@@ -69,9 +83,9 @@ async function loadBookmarkTree() {
     const response = await getBookmarksList()
     if (response.code === 0) {
       // 检查数据结构
-      const data = response.data || []
+      const data: any = response.data || []
       let treeDataResult = []
-      
+
       // 检查是否已经是树形结构（直接包含children字段）
       if (Array.isArray(data) && data.length > 0 && 'children' in data[0]) {
         // 已经是树形结构，转换为前端需要的格式
@@ -90,7 +104,7 @@ async function loadBookmarkTree() {
         // 作为列表数据构建树形结构
         treeDataResult = buildBookmarkTree(Array.isArray(data) ? data : [])
       }
-      
+
       treeData.value = treeDataResult
     }
   } catch (error) {
@@ -123,7 +137,7 @@ function convertServerTreeToFrontendTree(serverTree: any[]): any[] {
 
     // 递归处理子节点
     if (node.children && node.children.length > 0) {
-      frontendNode.children = convertServerTreeToFrontendTree(node.children)
+      (frontendNode as TreeItem).children = convertServerTreeToFrontendTree(node.children)
     }
 
     return frontendNode
@@ -274,7 +288,7 @@ function handleTreeSelect(keys: (string | number)[]) {
     // 查找选中的节点
     const selectedKey = keys[0]
     const selectedNode = findNodeByKey(treeData.value, selectedKey)
-    
+
     // 如果是书签项（非文件夹），则打开链接
     if (selectedNode && selectedNode.isLeaf && selectedNode.bookmark && selectedNode.bookmark.url) {
       window.open(selectedNode.bookmark.url, '_blank')
@@ -476,7 +490,7 @@ onMounted(() => {
   // 设置标题
   if (panelState.panelConfig.logoText)
     setTitle(panelState.panelConfig.logoText)
-    
+
   // 加载书签数据
   loadBookmarkTree()
 })
@@ -573,10 +587,10 @@ function handleAddItem(itemIconGroupId?: number) {
 						</NButton>
 					</div>
 				</template>
-				<NTree 
-					:data="treeData" 
-					block-line 
-					expand-on-click 
+				<NTree
+					:data="treeData"
+					block-line
+					expand-on-click
 					@update:selected-keys="handleTreeSelect"
 				/>
 			</NDrawerContent>
