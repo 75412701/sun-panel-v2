@@ -242,7 +242,6 @@ const handleContextSelect = (key: string) => {
 			alert(`修改书签：${bm.title}`);
 			break;
 		case "delete":
-			bookmarks.value = bookmarks.value.filter((b) => b.id !== bm.id);
 			break;
 	}
 	contextMenu.value.show = false;
