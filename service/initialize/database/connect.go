@@ -142,7 +142,7 @@ func NotFoundAndCreateUser(db *gorm.DB) error {
 		fUser.Name = username
 		fUser.Status = 1
 		fUser.Role = 1
-		fUser.Password = cmn.PasswordEncryption("12345678")
+		fUser.Password = cmn.PasswordEncryption("123456")
 
 		if errCreate := db.Create(&fUser).Error; errCreate != nil {
 			return errCreate

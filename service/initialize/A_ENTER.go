@@ -159,7 +159,7 @@ func CommandRun() {
 			os.Exit(0) // 务必退出
 		}
 
-		newPassword := "12345678"
+		newPassword := "123456"
 
 		updateInfo := models.User{
 			Password: cmn.PasswordEncryption(newPassword),
