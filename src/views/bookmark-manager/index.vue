@@ -15,7 +15,18 @@
 				返回
 			</NButton>
 			<h1 class="text-xl font-bold text-gray-800 flex-1 text-center">书签管理</h1>
-
+			<NButton
+				@click="triggerImportBookmarks"
+				type="success"
+				ghost
+				size="small"
+				class="flex items-center gap-1 text-green-600 hover:bg-green-100 transition-colors border border-green-200"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+				</svg>
+				导入书签
+			</NButton>
 		</div>
 
 		<!-- 主内容区域 -->
