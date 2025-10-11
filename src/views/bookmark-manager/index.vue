@@ -1,8 +1,7 @@
 <template>
 	<div
-		class="flex flex-col h-screen bg-white relative select-none"
+		class="flex flex-col h-screen bg-white"
 		@contextmenu.prevent
-		@click="handleGlobalClick"
 	>
 		<!-- 顶部标题栏 -->
 		<div class="p-4 border-b flex items-center justify-between bg-gray-50 relative">
@@ -74,7 +73,7 @@
 		</div>
 
 		<!-- 主内容区域 -->
-		<div class="flex flex-1 overflow-hidden relative">
+		<div class="flex flex-1 overflow-hidden">
 			<!-- 遮罩层：移动端左栏打开时 -->
 			<div
 				v-if="isMobile && showLeftPanel"
@@ -86,9 +85,10 @@
 			<div
 				v-show="showLeftPanel"
 				:class="[
-    'fixed top-0 left-0 h-full bg-white z-50 rounded-r-lg shadow-lg overflow-auto transition-all duration-300 ease-in-out',
-    isPanelExpanded ? 'w-3/4' : 'w-12'
+    isMobile ? 'fixed top-0 left-0 h-full bg-white z-50 rounded-r-lg shadow-lg overflow-auto transition-all duration-300 ease-in-out' : 'h-full bg-white border-r border-gray-200 overflow-auto',
+    isMobile && isPanelExpanded ? 'w-3/4' : isMobile ? 'w-12' : ''
   ]"
+				:style="{ width: !isMobile ? leftPanelWidth + 'px' : '' }"
 			>
 				<n-tree
 					:data="bookmarkTree"
@@ -891,8 +891,6 @@ const handleResize = () => {
 // 组件挂载时加载书签
 onMounted(async () => {
 	await refreshBookmarks();
-	window.addEventListener('click', handleGlobalClick)
-	document.addEventListener('click', handleGlobalClick);
 	// 添加全局事件监听器
 	document.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', stopResize);
@@ -904,8 +902,6 @@ onMounted(async () => {
 
 // 组件卸载时移除事件监听器
 onUnmounted(() => {
-	window.removeEventListener('click', handleGlobalClick)
-	document.removeEventListener('click', handleGlobalClick);
 	document.removeEventListener('mousemove', handleMouseMove);
 	document.removeEventListener('mouseup', stopResize);
 	document.removeEventListener('click', handleGlobalClick);
