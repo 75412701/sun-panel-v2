@@ -62,7 +62,7 @@
 					:default-expand-all="true"
 					block-line
 					@update:selected-keys="handleSelect"
-					@contextmenu="handleNTreeContextMenu"
+					@contextmenu.prevent="handleTreeContextMenu"
 					ref="treeRef"
 				/>
 			</div>
@@ -376,8 +376,25 @@ function openContextMenu(event: MouseEvent, bookmark: Bookmark) {
 	contextMenuY.value = event.clientY;
 	currentBookmark.value = bookmark;
 }
+// ✅ 左侧树节点右键菜单（与右侧一样）
+function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }) {
+	event.preventDefault();
+	if (!node) return;
 
+	// 判断是否文件夹
+	const isFolder = !node.isLeaf;
 
+	// 构造统一的 Bookmark 对象
+	const bookmark: Bookmark = {
+		id: node.key,
+		title: node.label,
+		url: node.bookmark?.url || '',
+		folderId: node.bookmark?.folderId || '0',
+		isFolder: isFolder,
+	};
+
+	openContextMenu(event, bookmark);
+}
 
 
 
