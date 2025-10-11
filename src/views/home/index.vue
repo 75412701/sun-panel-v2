@@ -591,6 +591,7 @@ function handleAddItem(itemIconGroupId?: number) {
 					:data="treeData"
 					block-line
 					expand-on-click
+					:default-expanded-keys="treeData.length > 0 ? [treeData[0].key] : []"
 					@update:selected-keys="handleTreeSelect"
 				/>
 			</NDrawerContent>

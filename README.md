@@ -5,7 +5,7 @@
 
 # Sun-Panel-V2
 
-一个基于Sun-Panel修改的版本,增加了浏览器的导入书签的功能,使其主页和书签功能分开
+一个基于[Sun-Panel](https://github.com/hslr-s/sun-panel)   修改的版本,增加了浏览器的导入书签的功能,使其主页和书签功能分开
 
 Sun-Panel-V2 一个服务器、NAS导航面板、Homepage、浏览器首页、书签。
 
@@ -15,8 +15,9 @@ Sun-Panel-V2 一个服务器、NAS导航面板、Homepage、浏览器首页、�
 
 ![](./doc/images/main-dark.png)
 ![](./doc/images/shuqianguanli.png)
-![](./doc/images/ydsy.png)
-![](./doc/images/ydsy2.png)
+<img src="./doc/images/ydsy.png" alt="示例图片" width="300" height="500">
+
+<img src="./doc/images/ydsy2.png" alt="示例图片" width="300" height="500">
 ## 🖼️ Preview Screenshots
 
 
