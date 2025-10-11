@@ -398,68 +398,6 @@ function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }
 
 
 
-// 处理n-tree组件的原生右键菜单事件
-function handleNTreeContextMenu(event: MouseEvent) {
-	console.log('handleNTreeContextMenu called');
-	event.preventDefault();
-
-	// 获取点击的节点元素
-	const target = event.target as HTMLElement;
-	const treeNodeEl = target.closest('.n-tree-node');
-
-	if (treeNodeEl) {
-		// 尝试直接从文本内容获取节点信息
-		const labelElement = treeNodeEl.querySelector('.n-tree-node-label');
-		if (labelElement) {
-			const label = labelElement.textContent?.trim() || '';
-			console.log('Found label:', label);
-
-			// 尝试直接通过标签查找节点
-			const nodeDataByLabel = findNodeByLabel(bookmarkTree.value, label);
-			if (nodeDataByLabel) {
-				console.log('Found node by label:', nodeDataByLabel);
-				// 直接打开右键菜单，跳过额外的节点验证
-				isContextMenuOpen.value = true;
-				contextMenuX.value = event.clientX;
-				contextMenuY.value = event.clientY;
-
-				// 直接创建临时bookmark对象
-				if (nodeDataByLabel.isLeaf && nodeDataByLabel.bookmark) {
-					currentBookmark.value = nodeDataByLabel.bookmark;
-				} else {
-					currentBookmark.value = {
-						id: nodeDataByLabel.key,
-						title: nodeDataByLabel.label,
-						url: '',
-						folderId: '0',
-						isFolder: true
-					};
-				}
-				return;
-			}
-		}
-	}
-
-	console.log('Could not determine clicked node');
-}
-
-
-// 通过标签查找节点
-function findNodeByLabel(treeData: any[], label: string): any | null {
-	for (const node of treeData) {
-		if (node.label === label) {
-			return node;
-		}
-		if (node.children && node.children.length > 0) {
-			const foundNode = findNodeByLabel(node.children, label);
-			if (foundNode) {
-				return foundNode;
-			}
-		}
-	}
-	return null;
-}
-
 // 全局点击关闭右键菜单
 function handleGlobalClick(event: MouseEvent) {
 	const contextMenuElement = document.querySelector('.context-menu');
