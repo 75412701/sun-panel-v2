@@ -1,9 +1,26 @@
 <template>
-	<div class="flex flex-col h-screen bg-white relative select-none"
-			 @contextmenu.prevent
-			 @click="handleGlobalClick">
+	<div
+		class="flex flex-col h-screen bg-white relative select-none"
+		@contextmenu.prevent
+		@click="handleGlobalClick"
+	>
 		<!-- 顶部标题栏 -->
-		<div class="p-4 border-b flex items-center justify-between bg-gray-50">
+		<div class="p-4 border-b flex items-center justify-between bg-gray-50 relative">
+			<!-- 移动端左栏展开按钮 -->
+			<NButton
+				v-if="isMobile"
+				@click="togglePanel"
+				type="primary"
+				ghost
+				size="small"
+				class="flex items-center gap-1 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+				</svg>
+				菜单
+			</NButton>
+
 			<NButton
 				@click="goBackToHome"
 				type="primary"
@@ -16,7 +33,9 @@
 				</svg>
 				返回
 			</NButton>
+
 			<h1 class="text-xl font-bold text-gray-800 flex-1 text-center">书签管理</h1>
+
 			<NButton
 				@click="createNewBookmark"
 				type="primary"
@@ -29,6 +48,7 @@
 				</svg>
 				新建
 			</NButton>
+
 			<NButton
 				@click="triggerImportBookmarks"
 				type="success"
@@ -42,6 +62,7 @@
 				</svg>
 				导入书签
 			</NButton>
+
 			<!-- 隐藏的文件输入框 -->
 			<input
 				ref="fileInput"
@@ -53,11 +74,21 @@
 		</div>
 
 		<!-- 主内容区域 -->
-		<div class="flex flex-1 overflow-hidden">
+		<div class="flex flex-1 overflow-hidden relative">
+			<!-- 遮罩层：移动端左栏打开时 -->
+			<div
+				v-if="isMobile && showLeftPanel"
+				class="fixed inset-0 bg-black bg-opacity-30 z-40"
+				@click="collapsePanel"
+			></div>
+
 			<!-- 左侧书签树 -->
 			<div
-				:style="{ width: leftPanelWidth + 'px' }"
-				class="border-r p-2 overflow-auto"
+				v-show="showLeftPanel"
+				:class="[
+    'fixed top-0 left-0 h-full bg-white z-50 rounded-r-lg shadow-lg overflow-auto transition-all duration-300 ease-in-out',
+    isPanelExpanded ? 'w-3/4' : 'w-12'
+  ]"
 			>
 				<n-tree
 					:data="bookmarkTree"
@@ -69,8 +100,9 @@
 				/>
 			</div>
 
-			<!-- 可拖动分割线 -->
+			<!-- 可拖动分割线（桌面端） -->
 			<div
+				v-if="!isMobile"
 				class="w-1 bg-gray-200 cursor-col-resize hover:bg-blue-300 flex items-center justify-center"
 				@mousedown="startResize"
 				:style="{ height: '100%', userSelect: 'none' }"
@@ -90,14 +122,12 @@
 				</div>
 
 				<!-- 书签列表 -->
-			<div class="flex-1 p-4 relative overflow-auto">
-				<div class="grid grid-cols-1 gap-2">
-						<!-- 如果没有数据，显示空状态提示 -->
+				<div class="flex-1 p-4 relative overflow-auto">
+					<div class="grid grid-cols-1 gap-2">
 						<div v-if="filteredBookmarks.length === 0" class="text-center py-8 text-gray-400">
 							暂无书签数据
 						</div>
 
-						<!-- 渲染书签列表 -->
 						<div
 							v-for="bookmark in filteredBookmarks"
 							:key="bookmark.id"
@@ -114,52 +144,50 @@
 			</div>
 		</div>
 
-			<!-- 全新的编辑书签对话框 -->
-			<div v-if="isEditDialogOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-				<div class="bg-white p-6 rounded-lg w-96">
-					<h3 class="text-xl font-bold mb-4">{{ isCreateMode ? '新建' : '修改' }}书签</h3>
-					<!-- 只有在创建模式下显示类型选择 -->
-					<div v-if="isCreateMode" class="mb-4">
-						<label class="block mb-2">类型</label>
-						<select
-							v-model="bookmarkType"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md"
-						>
-							<option value="bookmark">书签</option>
-							<option value="folder">文件夹</option>
-						</select>
-					</div>
-					<div class="mb-4">
-						<label class="block mb-2">标题</label>
-						<input
-							v-model="currentEditBookmark.title"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md"
-							placeholder="请输入{{ bookmarkType === 'folder' ? '文件夹' : '书签' }}标题"
-						/>
-					</div>
-					<!-- 只有在书签类型下显示URL字段 -->
-					<div v-if="!isCreateMode || bookmarkType === 'bookmark'" class="mb-4">
-						<label class="block mb-2">URL</label>
-						<input
-							v-model="currentEditBookmark.url"
-							class="w-full px-3 py-2 border border-gray-300 rounded-md"
-							placeholder="请输入书签URL"
-						/>
-					</div>
-					<div class="mb-4">
-						<label class="block mb-2">上级文件夹</label>
-						<select v-model="currentEditBookmark.folderId" class="w-full px-3 py-2 border border-gray-300 rounded-md">
-							<option v-for="folder in allFolders" :key="folder.value" :value="folder.value">{{ folder.label }}</option>
-						</select>
-					</div>
-					<div class="flex justify-end gap-2">
-						<button @click="closeEditDialog" class="px-4 py-2 border border-gray-300 rounded-md">取消</button>
-						<button @click="saveBookmarkChanges" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md">确定</button>
-					</div>
+		<!-- 编辑书签对话框 -->
+		<div v-if="isEditDialogOpen" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+			<div class="bg-white p-6 rounded-lg w-96">
+				<h3 class="text-xl font-bold mb-4">{{ isCreateMode ? '新建' : '修改' }}书签</h3>
+				<div v-if="isCreateMode" class="mb-4">
+					<label class="block mb-2">类型</label>
+					<select
+						v-model="bookmarkType"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md"
+					>
+						<option value="bookmark">书签</option>
+						<option value="folder">文件夹</option>
+					</select>
+				</div>
+				<div class="mb-4">
+					<label class="block mb-2">标题</label>
+					<input
+						v-model="currentEditBookmark.title"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md"
+						placeholder="请输入{{ bookmarkType === 'folder' ? '文件夹' : '书签' }}标题"
+					/>
+				</div>
+				<div v-if="!isCreateMode || bookmarkType === 'bookmark'" class="mb-4">
+					<label class="block mb-2">URL</label>
+					<input
+						v-model="currentEditBookmark.url"
+						class="w-full px-3 py-2 border border-gray-300 rounded-md"
+						placeholder="请输入书签URL"
+					/>
+				</div>
+				<div class="mb-4">
+					<label class="block mb-2">上级文件夹</label>
+					<select v-model="currentEditBookmark.folderId" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+						<option v-for="folder in allFolders" :key="folder.value" :value="folder.value">{{ folder.label }}</option>
+					</select>
+				</div>
+				<div class="flex justify-end gap-2">
+					<button @click="closeEditDialog" class="px-4 py-2 border border-gray-300 rounded-md">取消</button>
+					<button @click="saveBookmarkChanges" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-md">确定</button>
 				</div>
 			</div>
+		</div>
 
-			<!-- 全新的右键菜单 -->
+		<!-- 右键菜单 -->
 		<div
 			v-if="isContextMenuOpen"
 			:style="contextMenuStyle"
@@ -169,8 +197,7 @@
 			<div @click="handleEditBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">编辑</div>
 			<div @click="handleDeleteBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">删除</div>
 		</div>
-
-		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
@@ -183,7 +210,8 @@ import { dialog } from '@/utils/request/apiMessage'
 
 const router = useRouter()
 const ms = useMessage()
-
+const isMobile = ref(false)      // 是否移动端
+const showLeftPanel = ref(true)  // 左栏是否显示
 // 左侧面板宽度
 const leftPanelWidth = ref(256) // 默认256px
 const isResizing = ref(false)
@@ -193,13 +221,24 @@ const fileInput = ref<HTMLInputElement>()
 const uploadLoading = ref(false)
 const jsonData = ref<string | null>(null)
 const importWarning = ref<string[]>([])
-
+const isPanelExpanded = ref(false)
 // 返回首页
 function goBackToHome() {
   router.push('/')
 }
 
 
+function togglePanel() {
+	showLeftPanel.value = true
+	isPanelExpanded.value = true
+}
+
+function collapsePanel() {
+	isPanelExpanded.value = false
+	setTimeout(() => {
+		showLeftPanel.value = false
+	}, 300) // 等待动画完成再隐藏
+}
 
 // 开始调整大小
 function startResize(e: MouseEvent) {
@@ -844,7 +883,11 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 
 	return rootFolders;
 }
-
+const handleResize = () => {
+	isMobile.value = window.innerWidth < 768
+	// 移动端默认隐藏左栏
+	showLeftPanel.value = isMobile.value ? false : true
+}
 // 组件挂载时加载书签
 onMounted(async () => {
 	await refreshBookmarks();
@@ -854,6 +897,9 @@ onMounted(async () => {
 	document.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', stopResize);
 	document.addEventListener('click', handleGlobalClick);
+
+	handleResize()
+	window.addEventListener('resize', handleResize)
 });
 
 // 组件卸载时移除事件监听器
@@ -863,6 +909,8 @@ onUnmounted(() => {
 	document.removeEventListener('mousemove', handleMouseMove);
 	document.removeEventListener('mouseup', stopResize);
 	document.removeEventListener('click', handleGlobalClick);
+
+	window.removeEventListener('resize', handleResize)
 });
 
 
@@ -875,4 +923,18 @@ position: fixed !important;
 z-index: 99999 !important;
 background-color: white;
 }
+/* 移动端左栏滑动过渡 */
+.left-panel-transition {
+	transition: transform 0.3s ease-in-out;
+}
+
+/* 阴影和圆角让左栏浮动更美观 */
+.fixed.bg-white {
+	border-right: 1px solid #e5e7eb; /* 柔和边框 */
+	border-radius: 0 0.75rem 0.75rem 0; /* 左边圆角 */
+	box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+	transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+
 </style>
