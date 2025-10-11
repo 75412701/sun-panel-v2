@@ -235,23 +235,7 @@ interface Bookmark {
 }
 
 
-const bookmarkTree = ref([
-	{
-		key: 1,
-		label: '工作',
-		children: [
-			{ key: 11, label: 'Vue官网', isLeaf: true, bookmark: { id: 11, title: 'Vue官网', url: 'https://vuejs.org', folderId: 1 } },
-			{ key: 12, label: 'Naive UI', isLeaf: true, bookmark: { id: 12, title: 'Naive UI', url: 'https://www.naiveui.com', folderId: 1 } }
-		]
-	},
-	{
-		key: 2,
-		label: '娱乐',
-		children: [
-			{ key: 21, label: 'YouTube', isLeaf: true, bookmark: { id: 21, title: 'YouTube', url: 'https://youtube.com', folderId: 2 } }
-		]
-	}
-])
+const bookmarkTree = ref<any[]>([])
 
 // 当前选中的文件夹
 const selectedFolder = ref<string>('')
@@ -876,26 +860,7 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 		// 如果没有指定文件夹或文件夹不存在，则添加到根节点
 		rootFolders.push(bookmarkItem);
 	});
-	// 如果没有书签数据，使用默认数据
-	if (rootFolders.length === 0) {
-		return [
-			{
-				key: 1,
-				label: '工作',
-				children: [
-					{ key: 11, label: 'Vue官网', isLeaf: true, bookmark: { id: 11, title: 'Vue官网', url: 'https://vuejs.org', folderId: 1 } },
-					{ key: 12, label: 'Naive UI', isLeaf: true, bookmark: { id: 12, title: 'Naive UI', url: 'https://www.naiveui.com', folderId: 1 } }
-				]
-			},
-			{
-				key: 2,
-				label: '娱乐',
-				children: [
-					{ key: 21, label: 'YouTube', isLeaf: true, bookmark: { id: 21, title: 'YouTube', url: 'https://youtube.com', folderId: 2 } }
-				]
-			}
-		];
-	}
+
 
 	return rootFolders;
 }
