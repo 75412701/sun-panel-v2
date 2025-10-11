@@ -1,5 +1,7 @@
 <template>
-	<div class="flex flex-col h-screen bg-white">
+	<div class="flex flex-col h-screen bg-white relative select-none"
+			 @contextmenu.prevent
+			 @click="handleGlobalClick">
 		<!-- 顶部标题栏 -->
 		<div class="p-4 border-b flex items-center justify-between bg-gray-50">
 			<NButton
@@ -158,10 +160,16 @@
 			</div>
 
 			<!-- 全新的右键菜单 -->
-			<div v-if="isContextMenuOpen" :style="contextMenuStyle" class="fixed bg-white shadow-lg rounded-md py-1 z-50 w-40 context-menu">
-				<div @click="handleEditBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">编辑</div>
-				<div @click="handleDeleteBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">删除</div>
-			</div>
+		<div
+			v-if="isContextMenuOpen"
+			:style="contextMenuStyle"
+			class="fixed bg-white text-gray-700 shadow-lg rounded-md py-1 z-50 w-40 context-menu border border-gray-200"
+			@contextmenu.prevent.stop
+		>
+			<div @click="handleEditBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">编辑</div>
+			<div @click="handleDeleteBookmark" class="px-4 py-2 hover:bg-gray-100 cursor-pointer">删除</div>
+		</div>
+
 		</div>
 </template>
 
@@ -370,32 +378,32 @@ const contextMenuStyle = computed(() => ({
 
 // 打开右侧列表右键菜单
 function openContextMenu(event: MouseEvent, bookmark: Bookmark) {
-	event.preventDefault();
-	isContextMenuOpen.value = true;
-	contextMenuX.value = event.clientX;
-	contextMenuY.value = event.clientY;
-	currentBookmark.value = bookmark;
+	event.preventDefault()
+	event.stopPropagation()
+	isContextMenuOpen.value = true
+	contextMenuX.value = event.clientX
+	contextMenuY.value = event.clientY
+	currentBookmark.value = bookmark
 }
+
 // ✅ 左侧树节点右键菜单（与右侧一样）
 function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }) {
-	event.preventDefault();
+	event.preventDefault()
 	event.stopPropagation()
-	console.log('右键菜单触发:', node);
-	if (!node) return;
 
-	// 判断是否文件夹
-	const isFolder = !node.isLeaf;
+	// 打开菜单
+	isContextMenuOpen.value = true
+	contextMenuX.value = event.clientX
+	contextMenuY.value = event.clientY
 
-	// 构造统一的 Bookmark 对象
-	const bookmark: Bookmark = {
+	// 当前节点信息
+	currentBookmark.value = {
 		id: node.key,
 		title: node.label,
 		url: node.bookmark?.url || '',
 		folderId: node.bookmark?.folderId || '0',
-		isFolder: isFolder,
-	};
-
-	openContextMenu(event, bookmark);
+		isFolder: !node.isLeaf,
+	}
 }
 
 // 渲染每个节点时，给 label 添加右键事件
@@ -403,26 +411,25 @@ function renderTreeLabel({ option }: { option: any }) {
 	return h(
 		'span',
 		{
+			class: 'block px-1 py-0.5 rounded hover:bg-gray-100 cursor-default',
 			onContextmenu: (e: MouseEvent) => {
-				e.preventDefault();
-				e.stopPropagation();
-				handleTreeContextMenu({ node: option, event: e });
+				handleTreeContextMenu({ node: option, event: e })
 			},
 		},
 		option.label
-	);
+	)
 }
 
-
-
-
-// 全局点击关闭右键菜单
 function handleGlobalClick(event: MouseEvent) {
-	const contextMenuElement = document.querySelector('.context-menu');
-	if (contextMenuElement && !contextMenuElement.contains(event.target as Node)) {
-		closeContextMenu();
+	const path = event.composedPath() as HTMLElement[]
+	const clickedInsideMenu = path.some(
+		(el) => el.classList && el.classList.contains('context-menu')
+	)
+	if (!clickedInsideMenu) {
+		closeContextMenu()
 	}
 }
+
 
 // 关闭右键菜单
 function closeContextMenu() {
