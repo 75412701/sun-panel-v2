@@ -13,7 +13,7 @@ export function addMultiple<T>(req: Panel.Info[]) {
 /**
  * 添加单个书签
  */
-export function add<T>(req: Panel.Info) {
+export function add<T>(req: Panel.bookmarkInfo) {
   return post<T>({
     url: '/panel/bookmark/add',
     data: req,
@@ -32,7 +32,7 @@ export function getList<T>() {
 /**
  * 更新书签
  */
-export function update<T>(req: Panel.Info) {
+export function update<T>(req: Panel.bookmarkInfo) {
   return post<T>({
     url: '/panel/bookmark/update',
     data: req,

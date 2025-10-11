@@ -4,7 +4,12 @@ declare namespace Panel {
 
     }
 
+	interface bookmarkInfo extends ItemInfo {
+		parentUrl: string
+	}
+
     interface ItemInfo extends Common.InfoBase {
+
         icon: ItemIcon |null
         title: string
         url: string

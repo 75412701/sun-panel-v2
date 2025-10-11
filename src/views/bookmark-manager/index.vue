@@ -595,6 +595,7 @@ async function saveBookmarkChanges() {
 				id: Number(currentEditBookmark.value.id),
 				title: currentEditBookmark.value.title,
 				url: currentEditBookmark.value.url,
+				parentUrl: currentEditBookmark.value.folderId ? currentEditBookmark.value.folderId.toString() : '0',
 				sort: 9999,
 				lanUrl: '',
 				icon: null,
