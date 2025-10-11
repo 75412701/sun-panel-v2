@@ -62,7 +62,7 @@
 					:default-expand-all="true"
 					block-line
 					@update:selected-keys="handleSelect"
-					@contextmenu.prevent="handleTreeContextMenu"
+					:render-label="renderTreeLabel"
 					ref="treeRef"
 				/>
 			</div>
@@ -166,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted,h} from 'vue'
 import { NTree, NInput, NButton, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { addMultiple as addMultipleBookmarks, add as addBookmark, getList as getBookmarksList, deletes, update as updateBookmark } from '@/api/panel/bookmark'
@@ -379,6 +379,8 @@ function openContextMenu(event: MouseEvent, bookmark: Bookmark) {
 // ✅ 左侧树节点右键菜单（与右侧一样）
 function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }) {
 	event.preventDefault();
+	event.stopPropagation()
+	console.log('右键菜单触发:', node);
 	if (!node) return;
 
 	// 判断是否文件夹
@@ -395,6 +397,22 @@ function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }
 
 	openContextMenu(event, bookmark);
 }
+
+// 渲染每个节点时，给 label 添加右键事件
+function renderTreeLabel({ option }: { option: any }) {
+	return h(
+		'span',
+		{
+			onContextmenu: (e: MouseEvent) => {
+				e.preventDefault();
+				e.stopPropagation();
+				handleTreeContextMenu({ node: option, event: e });
+			},
+		},
+		option.label
+	);
+}
+
 
 
 
@@ -823,7 +841,8 @@ function buildBookmarkTree(bookmarks: any[]): any[] {
 // 组件挂载时加载书签
 onMounted(async () => {
 	await refreshBookmarks();
-
+	window.addEventListener('click', handleGlobalClick)
+	document.addEventListener('click', handleGlobalClick);
 	// 添加全局事件监听器
 	document.addEventListener('mousemove', handleMouseMove);
 	document.addEventListener('mouseup', stopResize);
@@ -832,9 +851,21 @@ onMounted(async () => {
 
 // 组件卸载时移除事件监听器
 onUnmounted(() => {
+	window.removeEventListener('click', handleGlobalClick)
+	document.removeEventListener('click', handleGlobalClick);
 	document.removeEventListener('mousemove', handleMouseMove);
 	document.removeEventListener('mouseup', stopResize);
 	document.removeEventListener('click', handleGlobalClick);
 });
 
+
+
 </script>
+
+<style>
+.context-menu {
+position: fixed !important;
+z-index: 99999 !important;
+background-color: white;
+}
+</style>
