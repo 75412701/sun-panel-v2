@@ -27,7 +27,7 @@ Sun-Panel-V2 一个服务器、NAS导航面板、Homepage、浏览器首页、�
 1.编写docker-compose.yml文件<br>
 2.运行docker-compose up -d<br>
 3.打开 域名/ip:3002<br><br><br>
-账号:admini<br>
+账号:admin<br>
 密码:123456
 ### docker
 
