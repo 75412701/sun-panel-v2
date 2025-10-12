@@ -233,7 +233,8 @@
     "onlineIconLibrary": "在线图标库",
     "openMethod": "打开方式",
     "selectUpload": "本地上传",
-    "url": "地址"
+    "url": "地址",
+    "lanOnly": "仅内网展示"
   },
   "login": {
     "loginButton": "登录",

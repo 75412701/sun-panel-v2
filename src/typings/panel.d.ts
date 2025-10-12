@@ -18,6 +18,8 @@ declare namespace Panel {
         description?: string
         openMethod: number
         itemIconGroupId ?:number
+        // 仅内网展示 0:关闭 1:开启
+        lanOnly?: number
     }
 
     interface ItemIconGroup extends Common.InfoBase {

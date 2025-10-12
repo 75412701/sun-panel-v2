@@ -17,6 +17,7 @@ type ItemIcon struct {
 	OpenMethod      int                       `gorm:"type:tinyint(1)" json:"openMethod"`
 	Sort            int                       `gorm:"type:int(11)" json:"sort"`
 	ItemIconGroupId int                       `json:"itemIconGroupId"`
+	LanOnly         int                       `gorm:"type:tinyint(1);default:0" json:"lanOnly"` // 仅内网展示 0:关闭 1:开启
 	UserId          uint                      `json:"userId"`
 	User            User                      `json:"user"`
 }

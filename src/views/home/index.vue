@@ -312,6 +312,26 @@ function findNodeByKey(nodes: any[], key: string | number): any {
   return null
 }
 
+// 根据网络模式过滤项目
+function filterItemsByNetworkMode() {
+  // 只有在公网模式下才需要过滤
+  if (panelState.networkMode === PanelStateNetworkModeEnum.wan) {
+    const filteredGroups = items.value.map(group => {
+      if (group.items) {
+        // 过滤掉lanOnly为1的项目
+        const filteredItems = group.items.filter(item => item.lanOnly !== 1)
+        return { ...group, items: filteredItems }
+      }
+      return group
+    })
+    // 过滤掉没有项目的组
+    filterItems.value = filteredGroups.filter(group => !group.items || group.items.length > 0)
+  } else {
+    // 内网模式下显示所有项目
+    filterItems.value = items.value
+  }
+}
+
 function getList() {
   // 获取组数据
   getGroupList<Common.ListResponse<ItemGroup[]>>().then(({ code, data, msg }) => {
@@ -322,16 +342,22 @@ function getList() {
       if (element.id)
         updateItemIconGroupByNet(i, element.id)
     }
-    filterItems.value = items.value
-    // console.log(items)
+    // 应用网络模式过滤
+    filterItemsByNetworkMode()
   })
 }
 
 // 从后端获取组下面的图标
 function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGroupId: number) {
   getListByGroupId<Common.ListResponse<Panel.ItemInfo[]>>(itemIconGroupId).then((res) => {
-    if (res.code === 0)
+    if (res.code === 0) {
       items.value[itemIconGroupIndex].items = res.data.list
+      // 当所有组的数据都加载完成后，应用网络模式过滤
+      const allGroupsLoaded = items.value.every(group => group.items !== undefined)
+      if (allGroupsLoaded) {
+        filterItemsByNetworkMode()
+      }
+    }
   })
 }
 
@@ -412,6 +438,9 @@ function handleChangeNetwork(mode: PanelStateNetworkModeEnum) {
 
   else
     ms.success(t('panelHome.changeToWanModelSuccess'))
+    
+  // 切换网络模式后，重新应用过滤
+  filterItemsByNetworkMode()
 }
 
 // 结束拖拽
@@ -502,6 +531,11 @@ function itemFrontEndSearch(keyword?: string) {
     const filteredData = ref<ItemGroup[]>([])
     for (let i = 0; i < items.value.length; i++) {
       const element = items.value[i].items?.filter((item: Panel.ItemInfo) => {
+        // 首先应用网络模式过滤
+        const networkModeMatch = panelState.networkMode !== PanelStateNetworkModeEnum.wan || item.lanOnly !== 1
+        if (!networkModeMatch) return false
+        
+        // 然后应用搜索关键词过滤
         return (
           item.title.toLowerCase().includes(keyword?.toLowerCase() ?? '')
           || item.url.toLowerCase().includes(keyword?.toLowerCase() ?? '')
@@ -514,7 +548,8 @@ function itemFrontEndSearch(keyword?: string) {
     filterItems.value = filteredData.value
   }
   else {
-    filterItems.value = items.value
+    // 没有搜索关键词时，应用网络模式过滤
+    filterItemsByNetworkMode()
   }
 }
 

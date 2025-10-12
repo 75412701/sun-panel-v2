@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineEmits, defineProps, ref, watch } from 'vue'
 import type { FormInst, FormRules } from 'naive-ui'
-import { NButton, NForm, NFormItem, NGrid, NGridItem, NInput, NInputGroup, NModal, NSelect, useMessage } from 'naive-ui'
+import { NButton, NForm, NFormItem, NGrid, NGridItem, NInput, NInputGroup, NModal, NSelect, NSwitch, useMessage } from 'naive-ui'
 import IconEditor from './IconEditor.vue'
 import { edit, getSiteFavicon } from '@/api/panel/itemIcon'
 import { getList as getGroupList } from '@/api/panel/itemIconGroup'
@@ -30,6 +30,7 @@ const restoreDefault: Panel.Info = {
   lanUrl: '',
   description: '',
   openMethod: 2,
+  lanOnly: 0,
 }
 
 interface Emit {
@@ -208,6 +209,9 @@ function getGroupListOptions() {
         </NFormItem>
         <NFormItem path="openMethod" :label="$t('iconItem.openMethod')">
           <NSelect v-model:value="model.openMethod" :options="options" />
+        </NFormItem>
+        <NFormItem path="lanOnly" :label="$t('iconItem.lanOnly')">
+          <NSwitch v-model:value="model.lanOnly" :checked-value="1" :unchecked-value="0" />
         </NFormItem>
       </NForm>
     </div>

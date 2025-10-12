@@ -125,6 +125,7 @@ async function exportIcons(): Promise<IconGroup[]> {
             lanUrl: iconElement.lanUrl || '',
             description: iconElement.description || '',
             openMethod: iconElement.openMethod || 1,
+            lanOnly: iconElement.lanOnly || 0,
           })
         }
       }

@@ -38,6 +38,7 @@ export interface Icon {
   lanUrl: string
   description: string
   openMethod: number
+  lanOnly?: number
 }
 
 // 图标组
