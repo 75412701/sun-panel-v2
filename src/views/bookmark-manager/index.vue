@@ -206,6 +206,10 @@ import { useRouter } from 'vue-router'
 import { addMultiple as addMultipleBookmarks, add as addBookmark, getList as getBookmarksList, deletes, update as updateBookmark } from '@/api/panel/bookmark'
 import { t } from '@/locales'
 import { dialog } from '@/utils/request/apiMessage'
+import { ss } from '@/utils/storage/local'
+
+// 首页书签缓存键名
+const BOOKMARKS_CACHE_KEY = 'bookmarksTreeCache'
 
 const router = useRouter()
 const ms = useMessage()
@@ -546,6 +550,9 @@ async function saveBookmarkChanges() {
 			}
 		}
 
+		// 清除首页的书签缓存，确保下次访问首页时重新获取最新数据
+		ss.remove(BOOKMARKS_CACHE_KEY)
+		console.log('已清除书签缓存')
 		console.log('saveBookmarkChanges called with data:', currentEditBookmark.value);
 
 		// 根据模式决定调用哪个接口
@@ -729,6 +736,10 @@ async function importBookmarksToServerWithHTML(htmlContent: string) {
 // 刷新书签列表
 async function refreshBookmarks() {
 	try {
+		// 清除首页的书签缓存，确保下次访问首页时重新获取最新数据
+		ss.remove(BOOKMARKS_CACHE_KEY)
+		console.log('已清除书签缓存')
+		
 		const response = await getBookmarksList();
 		if (response.code === 0) {
 			// 检查数据结构，如果已经是树形结构则直接使用

@@ -73,13 +73,26 @@ const isMobile = computed(() => width.value < 768)
 
 // 从API导入获取书签列表的函数
 import { getList as getBookmarksList } from '@/api/panel/bookmark'
+import { ss } from '@/utils/storage/local'
 
 // 书签数据树
 const treeData = ref<any[]>([])
+// 缓存键名
+const BOOKMARKS_CACHE_KEY = 'bookmarksTreeCache'
 
 // 获取书签数据并转换为前端需要的格式
 async function loadBookmarkTree() {
   try {
+    // 1. 首先尝试从缓存读取数据
+    const cachedData = ss.get(BOOKMARKS_CACHE_KEY)
+    if (cachedData) {
+      console.log('从缓存加载书签数据')
+      treeData.value = cachedData
+      return
+    }
+
+    // 2. 缓存中没有数据，请求接口获取数据
+    console.log('从接口加载书签数据')
     const response = await getBookmarksList()
     if (response.code === 0) {
       // 检查数据结构
@@ -105,7 +118,11 @@ async function loadBookmarkTree() {
         treeDataResult = buildBookmarkTree(Array.isArray(data) ? data : [])
       }
 
+      // 更新treeData
       treeData.value = treeDataResult
+      
+      // 3. 将数据永久保存到缓存中
+      ss.set(BOOKMARKS_CACHE_KEY, treeDataResult)
     }
   } catch (error) {
     console.error('获取书签数据失败:', error)
