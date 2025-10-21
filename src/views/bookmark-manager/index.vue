@@ -736,10 +736,16 @@ async function importBookmarksToServerWithHTML(htmlContent: string) {
 // 刷新书签列表
 async function refreshBookmarks() {
 	try {
-		// 清除首页的书签缓存，确保下次访问首页时重新获取最新数据
-		ss.remove(BOOKMARKS_CACHE_KEY)
-		console.log('已清除书签缓存')
-		
+		// 1. 首先尝试从缓存读取数据
+		const cachedData = ss.get(BOOKMARKS_CACHE_KEY)
+		if (cachedData) {
+			console.log('从缓存加载书签数据')
+			bookmarkTree.value = cachedData
+			return
+		}
+
+		// 2. 缓存中没有数据，请求接口获取数据
+		console.log('从接口加载书签数据')
 		const response = await getBookmarksList();
 		if (response.code === 0) {
 			// 检查数据结构，如果已经是树形结构则直接使用
@@ -766,6 +772,9 @@ async function refreshBookmarks() {
 			}
 
 			bookmarkTree.value = treeData;
+			
+			// 3. 将数据永久保存到缓存中
+			ss.set(BOOKMARKS_CACHE_KEY, treeData)
 		}
 	} catch (error) {
 		console.error('刷新书签列表失败:', error);

@@ -89,13 +89,11 @@ async function loadBookmarkTree() {
     // 1. 首先尝试从缓存读取数据
     const cachedData = ss.get(BOOKMARKS_CACHE_KEY)
     if (cachedData) {
-      console.log('从缓存加载书签数据')
       treeData.value = cachedData
       return
     }
 
     // 2. 缓存中没有数据，请求接口获取数据
-    console.log('从接口加载书签数据')
     const response = await getBookmarksList()
     if (response.code === 0) {
       // 检查数据结构
@@ -357,7 +355,6 @@ async function getList() {
     // 1. 首先尝试从缓存读取数据
     const cachedData = ss.get(GROUP_LIST_CACHE_KEY)
     if (cachedData) {
-      console.log('从缓存加载分组数据')
       items.value = cachedData
       // 为每个分组加载图标数据
       for (let i = 0; i < cachedData.length; i++) {
@@ -371,7 +368,6 @@ async function getList() {
     }
 
     // 2. 缓存中没有数据，请求接口获取数据
-    console.log('从接口加载分组数据')
     const response = await getGroupList<Common.ListResponse<ItemGroup[]>>()
     if (response.code === 0) {
       items.value = response.data.list
@@ -392,7 +388,6 @@ async function getList() {
     // 出错时尝试从缓存获取
     const cachedData = ss.get(GROUP_LIST_CACHE_KEY)
     if (cachedData) {
-      console.log('出错后从缓存加载分组数据')
       items.value = cachedData
       // 为每个分组加载图标数据
       for (let i = 0; i < cachedData.length; i++) {
@@ -415,7 +410,6 @@ async function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGrou
     // 2. 首先尝试从缓存读取数据
     const cachedData = ss.get(cacheKey)
     if (cachedData) {
-      console.log(`从缓存加载分组 ${itemIconGroupId} 的图标数据`)
       items.value[itemIconGroupIndex].items = cachedData
 
       // 当所有组的数据都加载完成后，应用网络模式过滤
@@ -425,9 +419,6 @@ async function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGrou
       }
       return
     }
-
-    // 3. 缓存中没有数据，请求接口获取数据
-    console.log(`从接口加载分组 ${itemIconGroupId} 的图标数据`)
     const res = await getListByGroupId<Common.ListResponse<Panel.ItemInfo[]>>(itemIconGroupId)
 
     if (res.code === 0) {
@@ -447,7 +438,6 @@ async function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGrou
     const cacheKey = `${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemIconGroupId}`
     const cachedData = ss.get(cacheKey)
     if (cachedData) {
-      console.log(`出错后从缓存加载分组 ${itemIconGroupId} 的图标数据`)
       items.value[itemIconGroupIndex].items = cachedData
 
       // 当所有组的数据都加载完成后，应用网络模式过滤
@@ -461,7 +451,6 @@ async function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGrou
 
 function handleRightMenuSelect(key: string | number) {
   dropdownShow.value = false
-  // console.log(currentRightSelectItem, key)
   let jumpUrl = panelState.networkMode === PanelStateNetworkModeEnum.lan ? currentRightSelectItem.value?.lanUrl : currentRightSelectItem.value?.url
   if (currentRightSelectItem.value?.lanUrl === '')
     jumpUrl = currentRightSelectItem.value.url
@@ -495,7 +484,6 @@ function handleRightMenuSelect(key: string | number) {
                 ms.success(t('common.deleteSuccess'))
                 // 清除该分组的图标缓存
                 ss.remove(`${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemIconGroupId}`)
-                console.log(`删除图标后清除分组 ${itemIconGroupId} 的缓存`)
                 getList()
               }
               else {
@@ -538,7 +526,6 @@ function handleEditSuccess(item: Panel.ItemInfo) {
     if (group.id === item.itemIconGroupId) {
       // 清除该分组的图标缓存
       ss.remove(`${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${item.itemIconGroupId}`)
-      console.log(`编辑图标后清除分组 ${item.itemIconGroupId} 的缓存`)
       break
     }
   }
@@ -557,11 +544,6 @@ function handleChangeNetwork(mode: PanelStateNetworkModeEnum) {
   filterItemsByNetworkMode()
 }
 
-// 结束拖拽
-// function handleEndDrag(event: any, itemIconGroup: Panel.ItemIconGroup) {
-//   // console.log(event)
-//   // console.log(items.value)
-// }
 
 function handleSaveSort(itemGroup: ItemGroup) {
   const saveItems: Common.SortItemRequest[] = []
@@ -579,7 +561,6 @@ function handleSaveSort(itemGroup: ItemGroup) {
         ms.success(t('common.saveSuccess'))
         // 清除该分组的图标缓存
         ss.remove(`${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemGroup.id}`)
-        console.log(`保存图标排序后清除分组 ${itemGroup.id} 的缓存`)
         itemGroup.sortStatus = false
       }
       else {
