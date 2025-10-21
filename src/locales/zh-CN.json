@@ -95,7 +95,7 @@
       "selectImportData": "请选择要导入的配置数据",
       "softwareVersionLow": "当前软件版本可能过旧，很有可能无法兼容该配置文件，请谨慎导入。推荐将软件更新到新版后再次导入",
       "tip": "导入图标配置数据不会清空现有图标数据",
-      "transmuteStandard": "导入浏览器的书签",
+      "transmuteStandard": "导入首页配置书签",
       "warnConfigFileLow": "配置文件版本过低，但是兼容"
     },
     "itemGroupManage": {
@@ -128,6 +128,8 @@
     }
   },
   "common": {
+    "refreshSuccess": "刷新成功",
+    "refreshFailed": "刷新失败",
     "action": "操作",
     "add": "添加",
     "addSuccess": "添加成功",
@@ -249,7 +251,8 @@
     "changeToWanModelSuccess": "已经切换到公网模式（模式状态仅保存在本地）",
     "goToLogin": "前往登录",
     "openLanUrl": "打开局域网地址",
-    "openWanUrl": "打开公网地址"
+    "openWanUrl": "打开公网地址",
+    "refreshData": "刷新数据"
   },
   "settingUserInfo": {
     "confirmLogoutText": "你确定要退出登录吗？",

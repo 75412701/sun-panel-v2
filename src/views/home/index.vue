@@ -44,6 +44,31 @@ const dropdownMenuY = ref(0)
 const dropdownShow = ref(false)
 const currentRightSelectItem = ref<Panel.ItemInfo | null>(null)
 const currentAddItenIconGroupId = ref<number | undefined>()
+// 刷新函数 - 删除缓存并重新加载数据
+function handleRefreshData() {
+  try {
+    // 删除除用户登录信息外的所有缓存
+    ss.remove(BOOKMARKS_CACHE_KEY)
+    ss.remove(GROUP_LIST_CACHE_KEY)
+    
+    // 直接清除所有localStorage中的图标列表缓存
+    // 由于ss没有getAllKeys方法，我们直接使用原生localStorage API
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith(ITEM_ICON_LIST_CACHE_KEY_PREFIX)) {
+        ss.remove(key)
+      }
+    })
+    
+    // 重新加载数据
+    getList()
+    loadBookmarkTree()
+    
+    ms.success(t('common.refreshSuccess'))
+  } catch (error) {
+    console.error('刷新数据失败:', error)
+    ms.error(t('common.refreshFailed'))
+  }
+}
 // 1. 定义树形节点的接口（包含 children）
 interface TreeItem {
 	key: string | number;
@@ -934,6 +959,12 @@ function handleAddItem(itemIconGroupId?: number) {
         <NButton v-if="authStore.visitMode === VisitMode.VISIT_MODE_LOGIN" color="#2a2a2a6b" @click="settingModalShow = !settingModalShow">
           <template #icon>
             <SvgIcon class="text-white font-xl" icon="majesticons-applications" />
+          </template>
+        </NButton>
+        
+        <NButton color="#2a2a2a6b" :title="t('panelHome.refreshData')" @click="handleRefreshData">
+          <template #icon>
+            <SvgIcon class="text-white font-xl" icon="shuaxin" />
           </template>
         </NButton>
 
