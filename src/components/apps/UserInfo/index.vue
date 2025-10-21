@@ -10,6 +10,10 @@ import { RoundCardModal, SvgIcon } from '@/components/common/'
 import { updateInfo, updatePassword } from '@/api/system/user'
 import { updateLocalUserInfo } from '@/utils/cmn'
 import { t } from '@/locales'
+import { ss } from '@/utils/storage'
+
+// 用户认证信息缓存键
+const USER_AUTH_INFO_CACHE_KEY = 'USER_AUTH_INFO_CACHE'
 
 const userStore = useUserStore()
 const authStore = useAuthStore()
@@ -68,6 +72,9 @@ async function logoutApi() {
   authStore.removeToken()
   panelState.removeState()
   appStore.removeToken()
+  // 清除用户认证信息缓存
+  console.log('登出时清除用户认证信息缓存')
+  ss.remove(USER_AUTH_INFO_CACHE_KEY)
   ms.success(t('settingUserInfo.logoutSuccess'))
   // router.push({ path: '/login' })
   location.reload()// 强制刷新一下页面
@@ -76,6 +83,10 @@ async function logoutApi() {
 function handleSaveInfo() {
   updateInfo(nickName.value).then(({ code, msg }) => {
     if (code === 0) {
+      // 清除缓存，确保下次获取最新数据
+      console.log('修改用户信息时清除缓存')
+      ss.remove(USER_AUTH_INFO_CACHE_KEY)
+      // 重新加载用户信息
       updateLocalUserInfo()
       isEditNickNameStatus.value = false
     }
@@ -103,6 +114,9 @@ function handleUpdatePassword(e: MouseEvent) {
         // 成功
         updatePasswordModalState.value.show = false
         ms.success(t('common.success'))
+        // 清除用户认证信息缓存
+        console.log('修改密码时清除用户认证信息缓存')
+        ss.remove(USER_AUTH_INFO_CACHE_KEY)
       }
     }).finally(() => {
       updatePasswordModalState.value.loading = false

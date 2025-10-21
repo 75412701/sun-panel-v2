@@ -6,7 +6,6 @@ import { AppIcon, AppStarter, EditItem } from './components'
 import { Clock, SearchBox, SystemMonitor } from '@/components/deskModule'
 import { SvgIcon } from '@/components/common'
 import { deletes, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
-import { getList as getGroupList } from '@/api/panel/itemIconGroup'
 
 import { setTitle, updateLocalUserInfo } from '@/utils/cmn'
 import { useAuthStore, usePanelState } from '@/store'
@@ -73,12 +72,16 @@ const isMobile = computed(() => width.value < 768)
 
 // 从API导入获取书签列表的函数
 import { getList as getBookmarksList } from '@/api/panel/bookmark'
+import { getList as getGroupList } from '@/api/panel/itemIconGroup'
 import { ss } from '@/utils/storage/local'
 
 // 书签数据树
 const treeData = ref<any[]>([])
 // 缓存键名
 const BOOKMARKS_CACHE_KEY = 'bookmarksTreeCache'
+const GROUP_LIST_CACHE_KEY = 'groupListCache'
+// 图标列表缓存键前缀
+const ITEM_ICON_LIST_CACHE_KEY_PREFIX = 'itemIconList_'
 
 // 获取书签数据并转换为前端需要的格式
 async function loadBookmarkTree() {
@@ -120,7 +123,7 @@ async function loadBookmarkTree() {
 
       // 更新treeData
       treeData.value = treeDataResult
-      
+
       // 3. 将数据永久保存到缓存中
       ss.set(BOOKMARKS_CACHE_KEY, treeDataResult)
     }
@@ -349,33 +352,111 @@ function filterItemsByNetworkMode() {
   }
 }
 
-function getList() {
-  // 获取组数据
-  getGroupList<Common.ListResponse<ItemGroup[]>>().then(({ code, data, msg }) => {
-    if (code === 0)
-      items.value = data.list
-    for (let i = 0; i < data.list.length; i++) {
-      const element = data.list[i]
-      if (element.id)
-        updateItemIconGroupByNet(i, element.id)
+async function getList() {
+  try {
+    // 1. 首先尝试从缓存读取数据
+    const cachedData = ss.get(GROUP_LIST_CACHE_KEY)
+    if (cachedData) {
+      console.log('从缓存加载分组数据')
+      items.value = cachedData
+      // 为每个分组加载图标数据
+      for (let i = 0; i < cachedData.length; i++) {
+        const element = cachedData[i]
+        if (element.id)
+          updateItemIconGroupByNet(i, element.id)
+      }
+      // 应用网络模式过滤
+      filterItemsByNetworkMode()
+      return
     }
-    // 应用网络模式过滤
-    filterItemsByNetworkMode()
-  })
+
+    // 2. 缓存中没有数据，请求接口获取数据
+    console.log('从接口加载分组数据')
+    const response = await getGroupList<Common.ListResponse<ItemGroup[]>>()
+    if (response.code === 0) {
+      items.value = response.data.list
+      // 3. 将数据永久保存到缓存中
+      ss.set(GROUP_LIST_CACHE_KEY, response.data.list)
+
+      // 为每个分组加载图标数据
+      for (let i = 0; i < response.data.list.length; i++) {
+        const element = response.data.list[i]
+        if (element.id)
+          updateItemIconGroupByNet(i, element.id)
+      }
+      // 应用网络模式过滤
+      filterItemsByNetworkMode()
+    }
+  } catch (error) {
+    console.error('获取分组数据失败:', error)
+    // 出错时尝试从缓存获取
+    const cachedData = ss.get(GROUP_LIST_CACHE_KEY)
+    if (cachedData) {
+      console.log('出错后从缓存加载分组数据')
+      items.value = cachedData
+      // 为每个分组加载图标数据
+      for (let i = 0; i < cachedData.length; i++) {
+        const element = cachedData[i]
+        if (element.id)
+          updateItemIconGroupByNet(i, element.id)
+      }
+      // 应用网络模式过滤
+      filterItemsByNetworkMode()
+    }
+  }
 }
 
 // 从后端获取组下面的图标
-function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGroupId: number) {
-  getListByGroupId<Common.ListResponse<Panel.ItemInfo[]>>(itemIconGroupId).then((res) => {
+async function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGroupId: number) {
+  try {
+    // 1. 定义缓存键
+    const cacheKey = `${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemIconGroupId}`
+
+    // 2. 首先尝试从缓存读取数据
+    const cachedData = ss.get(cacheKey)
+    if (cachedData) {
+      console.log(`从缓存加载分组 ${itemIconGroupId} 的图标数据`)
+      items.value[itemIconGroupIndex].items = cachedData
+
+      // 当所有组的数据都加载完成后，应用网络模式过滤
+      const allGroupsLoaded = items.value.every(group => group.items !== undefined)
+      if (allGroupsLoaded) {
+        filterItemsByNetworkMode()
+      }
+      return
+    }
+
+    // 3. 缓存中没有数据，请求接口获取数据
+    console.log(`从接口加载分组 ${itemIconGroupId} 的图标数据`)
+    const res = await getListByGroupId<Common.ListResponse<Panel.ItemInfo[]>>(itemIconGroupId)
+
     if (res.code === 0) {
       items.value[itemIconGroupIndex].items = res.data.list
+      // 4. 将数据永久保存到缓存中
+      ss.set(cacheKey, res.data.list)
+
       // 当所有组的数据都加载完成后，应用网络模式过滤
       const allGroupsLoaded = items.value.every(group => group.items !== undefined)
       if (allGroupsLoaded) {
         filterItemsByNetworkMode()
       }
     }
-  })
+  } catch (error) {
+    console.error(`获取分组 ${itemIconGroupId} 的图标数据失败:`, error)
+    // 出错时尝试从缓存获取
+    const cacheKey = `${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemIconGroupId}`
+    const cachedData = ss.get(cacheKey)
+    if (cachedData) {
+      console.log(`出错后从缓存加载分组 ${itemIconGroupId} 的图标数据`)
+      items.value[itemIconGroupIndex].items = cachedData
+
+      // 当所有组的数据都加载完成后，应用网络模式过滤
+      const allGroupsLoaded = items.value.every(group => group.items !== undefined)
+      if (allGroupsLoaded) {
+        filterItemsByNetworkMode()
+      }
+    }
+  }
 }
 
 function handleRightMenuSelect(key: string | number) {
@@ -407,15 +488,21 @@ function handleRightMenuSelect(key: string | number) {
         positiveText: t('common.confirm'),
         negativeText: t('common.cancel'),
         onPositiveClick: () => {
-          deletes([currentRightSelectItem.value?.id as number]).then(({ code, msg }) => {
-            if (code === 0) {
-              ms.success(t('common.deleteSuccess'))
-              getList()
-            }
-            else {
-              ms.error(`${t('common.deleteFail')}:${msg}`)
-            }
-          })
+          if (currentRightSelectItem.value) {
+            const itemIconGroupId = currentRightSelectItem.value.itemIconGroupId
+            deletes([currentRightSelectItem.value.id as number]).then(({ code, msg }) => {
+              if (code === 0) {
+                ms.success(t('common.deleteSuccess'))
+                // 清除该分组的图标缓存
+                ss.remove(`${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemIconGroupId}`)
+                console.log(`删除图标后清除分组 ${itemIconGroupId} 的缓存`)
+                getList()
+              }
+              else {
+                ms.error(`${t('common.deleteFail')}:${msg}`)
+              }
+            })
+          }
         },
       })
 
@@ -445,6 +532,16 @@ function onClickoutside() {
 }
 
 function handleEditSuccess(item: Panel.ItemInfo) {
+  // 查找编辑的图标所属的分组
+  for (let i = 0; i < items.value.length; i++) {
+    const group = items.value[i]
+    if (group.id === item.itemIconGroupId) {
+      // 清除该分组的图标缓存
+      ss.remove(`${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${item.itemIconGroupId}`)
+      console.log(`编辑图标后清除分组 ${item.itemIconGroupId} 的缓存`)
+      break
+    }
+  }
   getList()
 }
 
@@ -455,7 +552,7 @@ function handleChangeNetwork(mode: PanelStateNetworkModeEnum) {
 
   else
     ms.success(t('panelHome.changeToWanModelSuccess'))
-    
+
   // 切换网络模式后，重新应用过滤
   filterItemsByNetworkMode()
 }
@@ -480,6 +577,9 @@ function handleSaveSort(itemGroup: ItemGroup) {
     saveSort({ itemIconGroupId: itemGroup.id as number, sortItems: saveItems }).then(({ code, msg }) => {
       if (code === 0) {
         ms.success(t('common.saveSuccess'))
+        // 清除该分组的图标缓存
+        ss.remove(`${ITEM_ICON_LIST_CACHE_KEY_PREFIX}${itemGroup.id}`)
+        console.log(`保存图标排序后清除分组 ${itemGroup.id} 的缓存`)
         itemGroup.sortStatus = false
       }
       else {
@@ -551,7 +651,7 @@ function itemFrontEndSearch(keyword?: string) {
         // 首先应用网络模式过滤
         const networkModeMatch = panelState.networkMode !== PanelStateNetworkModeEnum.wan || item.lanOnly !== 1
         if (!networkModeMatch) return false
-        
+
         // 然后应用搜索关键词过滤
         return (
           item.title.toLowerCase().includes(keyword?.toLowerCase() ?? '')

@@ -7,6 +7,7 @@ import type { IconGroup, ImportJsonResult } from '@/utils/jsonImportExport'
 import { ConfigVersionLowError, FormatError, exportJson, importJsonString } from '@/utils/jsonImportExport'
 import { get as getAbout } from '@/api/system/about'
 import { edit as addGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
+import { ss } from '@/utils/storage/local'
 import { addMultiple as addMultipleIcons, getListByGroupId } from '@/api/panel/itemIcon'
 
 import { t } from '@/locales'
@@ -51,6 +52,8 @@ async function importIcons(): Promise<string | null> {
 
       if (createGroupResponse.code === 0) {
         const groupId = createGroupResponse.data?.id
+        // 清除分组列表缓存
+        ss.remove('GROUP_LIST_CACHE')
 
         if (groupId) {
           let addIcons: Panel.ItemInfo[] = []

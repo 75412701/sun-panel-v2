@@ -7,6 +7,10 @@ import { RoundCardModal, SvgIcon } from '@/components/common'
 import { copyToClipboard, timeFormat } from '@/utils/cmn'
 import { t } from '@/locales'
 import { usePanelState } from '@/store'
+import { ss } from '@/utils/storage'
+
+// 用户配置缓存键
+const USER_CONFIG_CACHE_KEY = 'USER_CONFIG_CACHE'
 
 interface InfoModalState {
   title: string
@@ -75,7 +79,14 @@ function handleInfoClick(fileInfo: File.Info) {
 
 function handleSetWallpaper(imgSrc: string) {
   panelStore.panelConfig.backgroundImageSrc = imgSrc
-  savePanelConfig({ panel: panelStore.panelConfig })
+  savePanelConfig({ panel: panelStore.panelConfig }).then((res) => {
+    if (res.code === 0) {
+      ms.success(t('apps.baseSettings.configSaved'))
+      // 清除用户配置缓存，确保下次加载时获取最新配置
+      console.log('清除用户配置缓存')
+      ss.remove(USER_CONFIG_CACHE_KEY)
+    }
+  })
 }
 
 onMounted(() => {

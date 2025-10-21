@@ -6,6 +6,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { deletes, edit, getList, saveSort } from '@/api/panel/itemIconGroup'
 import { RoundCardModal, SvgIcon } from '@/components/common'
 import { t } from '@/locales'
+import { ss } from '@/utils/storage/local'
 
 interface EditModalArg {
   show: boolean
@@ -44,6 +45,8 @@ const groups = ref<Panel.ItemIconGroup[]>([])
 
 function handleAddGroup() {
   editModalArg.value.show = !editModalArg.value.show
+  // Clear group list cache
+  ss.remove('GROUP_LIST_CACHE')
 }
 
 function handleEditGroup(groupInfo: Panel.ItemIconGroup) {
@@ -68,6 +71,8 @@ function handleSaveSort() {
   saveSort(saveItems).then(({ code, msg }) => {
     if (code === 0) {
       ms.success(t('common.saveSuccess'))
+      // 清除分组列表缓存
+      ss.remove('GROUP_LIST_CACHE')
       sortStatus.value = false
     }
     else {
@@ -87,8 +92,11 @@ function handleDelete(groupInfo: Panel.ItemIconGroup) {
         deletes([groupInfo.id]).then(({ code, msg }) => {
           if (code !== 0)
             ms.error(t('common.deleteFail'))
-          else
+          else {
+            // 清除分组列表缓存
+            ss.remove('GROUP_LIST_CACHE')
             refreshList()
+          }
         })
       }
     },
@@ -102,7 +110,9 @@ function handleSaveGroup() {
       edit(editModalArg.value.model).then(({ code, msg }) => {
         if (code !== 0)
           ms.error(msg)
-
+        
+        // 清除分组列表缓存
+        ss.remove('GROUP_LIST_CACHE')
         refreshList()
         editModalArg.value.show = false
         editModalArg.value.model = { ...defaultMNodal }

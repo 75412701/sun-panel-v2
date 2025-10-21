@@ -4,6 +4,10 @@ import type { NotificationReactive } from 'naive-ui'
 import { NButton, createDiscreteApi } from 'naive-ui'
 import { useAuthStore, useNoticeStore, useUserStore } from '@/store'
 import { getAuthInfo } from '@/api/system/user'
+import { ss } from '@/utils/storage'
+
+// 用户认证信息缓存键
+const USER_AUTH_INFO_CACHE_KEY = 'USER_AUTH_INFO_CACHE'
 import type { VisitMode } from '@/enums/auth'
 import { getListByDisplayType as getListByDisplayTypeApi } from '@/api/notice'
 
@@ -108,10 +112,39 @@ export async function updateLocalUserInfo() {
     visitMode: VisitMode
   }
 
-  const { data } = await getAuthInfo<Req>()
-  userStore.updateUserInfo({ headImage: data.user.headImage, name: data.user.name })
-  authStore.setUserInfo(data.user)
-  authStore.setVisitMode(data.visitMode)
+  try {
+    // 1. 首先尝试从缓存读取数据
+    const cachedData = ss.get(USER_AUTH_INFO_CACHE_KEY)
+    if (cachedData) {
+      console.log('从缓存加载用户认证信息')
+      userStore.updateUserInfo({ headImage: cachedData.user.headImage, name: cachedData.user.name })
+      authStore.setUserInfo(cachedData.user)
+      authStore.setVisitMode(cachedData.visitMode)
+      return
+    }
+
+    // 2. 缓存中没有数据，请求接口获取数据
+    console.log('从接口加载用户认证信息')
+    const { data } = await getAuthInfo<Req>()
+    
+    // 更新store
+    userStore.updateUserInfo({ headImage: data.user.headImage, name: data.user.name })
+    authStore.setUserInfo(data.user)
+    authStore.setVisitMode(data.visitMode)
+    
+    // 3. 将数据永久保存到缓存中
+    ss.set(USER_AUTH_INFO_CACHE_KEY, data)
+  } catch (error) {
+    console.error('获取用户认证信息失败', error)
+    // 出错时尝试从缓存获取
+    const cachedData = ss.get(USER_AUTH_INFO_CACHE_KEY)
+    if (cachedData) {
+      console.log('出错后从缓存加载用户认证信息')
+      userStore.updateUserInfo({ headImage: cachedData.user.headImage, name: cachedData.user.name })
+      authStore.setUserInfo(cachedData.user)
+      authStore.setVisitMode(cachedData.visitMode)
+    }
+  }
 }
 
 export async function getNotice(displayType: number | number[]) {

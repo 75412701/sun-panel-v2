@@ -6,6 +6,10 @@ import { useAuthStore, usePanelState } from '@/store'
 import { set as setUserConfig } from '@/api/panel/userConfig'
 import { PanelPanelConfigStyleEnum } from '@/enums/panel'
 import { t } from '@/locales'
+import { ss } from '@/utils/storage'
+
+// 用户配置缓存键
+const USER_CONFIG_CACHE_KEY = 'USER_CONFIG_CACHE'
 
 const authStore = useAuthStore()
 const panelState = usePanelState()
@@ -73,10 +77,15 @@ function handleUploadBackgroundFinish({
 
 function uploadCloud() {
   setUserConfig({ panel: panelState.panelConfig }).then((res) => {
-    if (res.code === 0)
+    if (res.code === 0) {
       ms.success(t('apps.baseSettings.configSaved'))
-    else
+      // 清除用户配置缓存，确保下次加载时获取最新配置
+      console.log('清除用户配置缓存')
+      ss.remove(USER_CONFIG_CACHE_KEY)
+    }
+    else {
       ms.error(t('apps.baseSettings.configFailed', { message: res.msg }))
+    }
   })
 }
 
