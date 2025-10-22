@@ -136,7 +136,7 @@
 			>
 				<div class="flex items-center space-x-2">
 					<span class="font-medium text-slate-700">{{ bookmark.title }}</span>
-					<span class="text-slate-400 text-sm">{{ bookmark.url }}</span>
+					<span class="text-slate-400 text-sm truncate max-w-[200px] whitespace-nowrap">{{ bookmark.url }}</span>
 				</div>
 			</div>
 					</div>
