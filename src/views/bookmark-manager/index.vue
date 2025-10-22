@@ -428,7 +428,7 @@ function openContextMenu(event: MouseEvent, bookmark: Bookmark) {
 	currentBookmark.value = bookmark
 }
 
-// ✅ 左侧树节点右键菜单（与右侧一样）
+// 左侧树节点右键菜单
 function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }) {
 	event.preventDefault()
 	event.stopPropagation()
@@ -437,13 +437,41 @@ function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }
 	isContextMenuOpen.value = true
 	contextMenuX.value = event.clientX
 	contextMenuY.value = event.clientY
+	
+	// 查找当前节点的父文件夹ID
+	let parentFolderId = '0'; // 默认根目录
+	
+	// 如果是从bookmark对象中可以直接获取folderId
+	if (node.bookmark?.folderId) {
+		parentFolderId = node.bookmark.folderId;
+	} else {
+		// 否则尝试通过遍历树结构找到父节点
+		function findParentId(treeNodes: any[], targetId: string | number, foundParent?: string | number): string | number {
+			for (const item of treeNodes) {
+				if (item.children) {
+					// 检查当前节点的子节点中是否有目标节点
+					const childFound = item.children.some((child: any) => child.key === targetId);
+					if (childFound) {
+						return item.key; // 返回找到的父节点ID
+					}
+					// 递归搜索子节点
+					const parentId = findParentId(item.children, targetId);
+					if (parentId !== '0') {
+						return parentId;
+					}
+				}
+			}
+			return foundParent || '0';
+		}
+		parentFolderId = findParentId(bookmarkTree.value, node.key);
+	}
 
 	// 当前节点信息
 	currentBookmark.value = {
 		id: node.key,
 		title: node.label,
 		url: node.bookmark?.url || '',
-		folderId: node.bookmark?.folderId || '0',
+		folderId: parentFolderId, // 使用找到的父文件夹ID
 		isFolder: !node.isLeaf,
 	}
 }
