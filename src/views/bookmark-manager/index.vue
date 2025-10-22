@@ -646,6 +646,9 @@ async function deleteBookmark(bookmark: Bookmark) {
 			 try {
 				 const response = await deletes([Number(bookmark.id)]);
 				 if (response.code === 0) {
+					 // 清除书签缓存
+					 ss.remove(BOOKMARKS_CACHE_KEY)
+					 console.log('已清除书签缓存')
 					 ms.success('删除成功');
 					 // 刷新书签列表
 					 await refreshBookmarks();
