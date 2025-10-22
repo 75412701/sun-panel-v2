@@ -163,7 +163,7 @@
 					<input
 						v-model="currentEditBookmark.title"
 						class="w-full px-3 py-2 border border-gray-300 rounded-md"
-						placeholder="请输入{{ bookmarkType === 'folder' ? '文件夹' : '书签' }}标题"
+						placeholder="标题"
 					/>
 				</div>
 				<div v-if="!isCreateMode || bookmarkType === 'bookmark'" class="mb-4">
@@ -328,7 +328,7 @@ const filteredBookmarks = computed(() => {
 		const bookmark = allBookmarks.value.find(b => String(b.id) === selectedBookmarkId.value);
 		return bookmark ? [bookmark] : [];
 	}
-	
+
 	// 先获取所有书签
 	let bookmarks = allBookmarks.value
 	if (selectedFolder.value) {
@@ -368,7 +368,7 @@ function handleSelect(keys: (string | number)[]) {
 	// 确保类型安全的赋值方式
 	if (keys && Array.isArray(keys) && keys.length > 0) {
 		const key = String(keys[0]);
-		
+
 		// 查找当前点击的节点
 		function findNodeById(nodes: any[], id: string): any | null {
 			for (const node of nodes) {
@@ -382,9 +382,9 @@ function handleSelect(keys: (string | number)[]) {
 			}
 			return null;
 		}
-		
+
 		const selectedNode = findNodeById(bookmarkTree.value, key);
-		
+
 		// 检查是否为具体书签节点
 		if (selectedNode && selectedNode.isLeaf && selectedNode.bookmark) {
 			// 如果是具体书签，设置selectedBookmarkId
