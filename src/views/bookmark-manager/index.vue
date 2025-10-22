@@ -128,16 +128,17 @@
 						</div>
 
 						<div
-							v-for="bookmark in filteredBookmarks"
-							:key="bookmark.id"
-							class="flex items-center justify-between border p-2 rounded hover:bg-gray-50 cursor-pointer"
-							@contextmenu.prevent="openContextMenu($event, bookmark)"
-						>
-							<div class="flex items-center space-x-2">
-								<span class="font-medium text-slate-700">{{ bookmark.title }}</span>
-								<span class="text-slate-400 text-sm">{{ bookmark.url }}</span>
-							</div>
-						</div>
+				v-for="bookmark in filteredBookmarks"
+				:key="bookmark.id"
+				class="flex items-center justify-between border p-2 rounded hover:bg-gray-50 cursor-pointer"
+				@contextmenu.prevent="openContextMenu($event, bookmark)"
+				@click="openBookmark(bookmark)"
+			>
+				<div class="flex items-center space-x-2">
+					<span class="font-medium text-slate-700">{{ bookmark.title }}</span>
+					<span class="text-slate-400 text-sm">{{ bookmark.url }}</span>
+				</div>
+			</div>
 					</div>
 				</div>
 			</div>
@@ -322,10 +323,14 @@ const allBookmarks = computed<Bookmark[]>(() => {
 // 搜索
 const searchQuery = ref('')
 const filteredBookmarks = computed(() => {
+	// 如果选中了具体书签，直接返回该书签
+	if (selectedBookmarkId.value) {
+		const bookmark = allBookmarks.value.find(b => String(b.id) === selectedBookmarkId.value);
+		return bookmark ? [bookmark] : [];
+	}
+	
 	// 先获取所有书签
 	let bookmarks = allBookmarks.value
-
-	// 1. 应用文件夹过滤
 	if (selectedFolder.value) {
 		const targetFolderId = String(selectedFolder.value)
 		bookmarks = bookmarks.filter(bookmark => {
@@ -334,7 +339,7 @@ const filteredBookmarks = computed(() => {
 		})
 	}
 
-	// 2. 应用搜索过滤
+	// 应用搜索过滤
 	if (searchQuery.value.trim()) {
 		const query = searchQuery.value.toLowerCase()
 		bookmarks = bookmarks.filter(bookmark =>
@@ -349,15 +354,46 @@ const filteredBookmarks = computed(() => {
 // 当前选中的节点键引用
 const selectedKeysRef = ref<(string | number)[]>([]);
 
+// 当前选中的书签ID（用于显示单个书签）
+const selectedBookmarkId = ref<string>('')
+
 // 点击树节点
 function handleSelect(keys: (string | number)[]) {
 	// 更新选中的节点键引用
 	selectedKeysRef.value = keys;
 
+	// 重置选中的书签ID
+	selectedBookmarkId.value = '';
+
 	// 确保类型安全的赋值方式
 	if (keys && Array.isArray(keys) && keys.length > 0) {
-		const key = keys[0];
-		selectedFolder.value = String(key);
+		const key = String(keys[0]);
+		
+		// 查找当前点击的节点
+		function findNodeById(nodes: any[], id: string): any | null {
+			for (const node of nodes) {
+				if (String(node.key) === id) {
+					return node;
+				}
+				if (node.children && node.children.length > 0) {
+					const found = findNodeById(node.children, id);
+					if (found) return found;
+				}
+			}
+			return null;
+		}
+		
+		const selectedNode = findNodeById(bookmarkTree.value, key);
+		
+		// 检查是否为具体书签节点
+		if (selectedNode && selectedNode.isLeaf && selectedNode.bookmark) {
+			// 如果是具体书签，设置selectedBookmarkId
+			selectedBookmarkId.value = key;
+			selectedFolder.value = ''; // 清空选中的文件夹
+		} else {
+			// 如果是文件夹，设置selectedFolder
+			selectedFolder.value = key;
+		}
 	} else {
 		selectedFolder.value = '';
 	}
@@ -367,6 +403,7 @@ function handleSelect(keys: (string | number)[]) {
 function handleSearch() {
 	if (searchQuery.value) {
 		selectedFolder.value = ''
+		selectedBookmarkId.value = '' // 同时清空选中的书签
 	}
 }
 
@@ -437,10 +474,10 @@ function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }
 	isContextMenuOpen.value = true
 	contextMenuX.value = event.clientX
 	contextMenuY.value = event.clientY
-	
+
 	// 查找当前节点的父文件夹ID
 	let parentFolderId = '0'; // 默认根目录
-	
+
 	// 如果是从bookmark对象中可以直接获取folderId
 	if (node.bookmark?.folderId) {
 		parentFolderId = node.bookmark.folderId;
@@ -507,19 +544,27 @@ function closeContextMenu() {
 }
 
 
+// 打开书签URL
+function openBookmark(bookmark: Bookmark) {
+	if (bookmark.url && !bookmark.isFolder) {
+		// 使用window.open在新标签页中打开书签URL
+		window.open(bookmark.url, '_blank');
+	}
+}
+
 // 处理编辑书签
 function handleEditBookmark() {
-	if (currentBookmark.value) {
-		currentEditBookmark.value = {
-			...currentBookmark.value,
-		};
-		// 根据是否为文件夹设置书签类型
-		bookmarkType.value = currentBookmark.value.isFolder ? 'folder' : 'bookmark';
-		// 设置为修改模式
-		isCreateMode.value = false;
-		isEditDialogOpen.value = true;
-	}
-	isContextMenuOpen.value = false;
+  if (currentBookmark.value) {
+    currentEditBookmark.value = {
+      ...currentBookmark.value,
+    };
+    // 根据是否为文件夹设置书签类型
+    bookmarkType.value = currentBookmark.value.isFolder ? 'folder' : 'bookmark';
+    // 设置为修改模式
+    isCreateMode.value = false;
+    isEditDialogOpen.value = true;
+  }
+  isContextMenuOpen.value = false;
 }
 
 // 处理删除书签
