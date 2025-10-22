@@ -483,24 +483,24 @@ function handleTreeContextMenu({ node, event }: { node: any; event: MouseEvent }
 		parentFolderId = node.bookmark.folderId;
 	} else {
 		// 否则尝试通过遍历树结构找到父节点
-		function findParentId(treeNodes: any[], targetId: string | number, foundParent?: string | number): string | number {
+		function findParentId(treeNodes: any[], targetId: string | number): string {
 			for (const item of treeNodes) {
 				if (item.children) {
 					// 检查当前节点的子节点中是否有目标节点
-					const childFound = item.children.some((child: any) => child.key === targetId);
+					const childFound = item.children.some((child: any) => String(child.key) === String(targetId));
 					if (childFound) {
-						return item.key; // 返回找到的父节点ID
+						return String(item.key); // 返回找到的父节点ID，确保是字符串类型
 					}
 					// 递归搜索子节点
 					const parentId = findParentId(item.children, targetId);
 					if (parentId !== '0') {
-						return parentId;
+						return parentId; // parentId已经是字符串类型
 					}
 				}
 			}
-			return foundParent || '0';
+			return '0'; // 确保返回字符串类型
 		}
-		parentFolderId = findParentId(bookmarkTree.value, node.key);
+		parentFolderId = findParentId(bookmarkTree.value, String(node.key));
 	}
 
 	// 当前节点信息
