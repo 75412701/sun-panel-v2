@@ -36,14 +36,12 @@ export const usePanelState = defineStore('panel', {
         // 1. 首先尝试从缓存读取数据
         const cachedData = ss.get(USER_CONFIG_CACHE_KEY)
         if (cachedData) {
-          console.log('从缓存加载用户配置数据')
           this.panelConfig = { ...defaultStatePanelConfig(), ...cachedData.panel }
           this.recordState()
           return
         }
 
         // 2. 缓存中没有数据，请求接口获取数据
-        console.log('从接口加载用户配置数据')
         getUserConfig<Panel.userConfig>().then((res) => {
           if (res.code === 0) {
             this.panelConfig = { ...defaultStatePanelConfig(), ...res.data.panel }
@@ -60,7 +58,6 @@ export const usePanelState = defineStore('panel', {
         // 出错时尝试从缓存获取
         const cachedData = ss.get(USER_CONFIG_CACHE_KEY)
         if (cachedData) {
-          console.log('出错后从缓存加载用户配置数据')
           this.panelConfig = { ...defaultStatePanelConfig(), ...cachedData.panel }
           this.recordState()
         }

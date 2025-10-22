@@ -481,7 +481,6 @@ function closeContextMenu() {
 
 // 处理编辑书签
 function handleEditBookmark() {
-	console.log('handleEditBookmark called with bookmark:', currentBookmark.value);
 	if (currentBookmark.value) {
 		currentEditBookmark.value = {
 			...currentBookmark.value,
@@ -497,7 +496,6 @@ function handleEditBookmark() {
 
 // 处理删除书签
 function handleDeleteBookmark() {
-	console.log('handleDeleteBookmark called with bookmark:', currentBookmark.value);
 	if (currentBookmark.value) {
 		deleteBookmark(currentBookmark.value);
 	}
@@ -552,8 +550,6 @@ async function saveBookmarkChanges() {
 
 		// 清除首页的书签缓存，确保下次访问首页时重新获取最新数据
 		ss.remove(BOOKMARKS_CACHE_KEY)
-		console.log('已清除书签缓存')
-		console.log('saveBookmarkChanges called with data:', currentEditBookmark.value);
 
 		// 根据模式决定调用哪个接口
 		if (isCreateMode.value) {
@@ -629,8 +625,6 @@ async function saveBookmarkChanges() {
 
 // 删除书签或文件夹
 async function deleteBookmark(bookmark: Bookmark) {
-	console.log('deleteBookmark called with dialog:', typeof dialog);
-	console.log('dialog object structure:', dialog);
 	// 根据是否为文件夹显示不同的确认消息
 	const confirmMessage = bookmark.isFolder
 		? `确定要删除文件夹 "${bookmark.title}" 吗？删除后，该文件夹下的所有内容也将被删除。`
@@ -648,7 +642,6 @@ async function deleteBookmark(bookmark: Bookmark) {
 				 if (response.code === 0) {
 					 // 清除书签缓存
 					 ss.remove(BOOKMARKS_CACHE_KEY)
-					 console.log('已清除书签缓存')
 					 ms.success('删除成功');
 					 // 刷新书签列表
 					 await refreshBookmarks();
@@ -742,13 +735,11 @@ async function refreshBookmarks() {
 		// 1. 首先尝试从缓存读取数据
 		const cachedData = ss.get(BOOKMARKS_CACHE_KEY)
 		if (cachedData) {
-			console.log('从缓存加载书签数据')
 			bookmarkTree.value = cachedData
 			return
 		}
 
 		// 2. 缓存中没有数据，请求接口获取数据
-		console.log('从接口加载书签数据')
 		const response = await getBookmarksList();
 		if (response.code === 0) {
 			// 检查数据结构，如果已经是树形结构则直接使用
@@ -775,7 +766,7 @@ async function refreshBookmarks() {
 			}
 
 			bookmarkTree.value = treeData;
-			
+
 			// 3. 将数据永久保存到缓存中
 			ss.set(BOOKMARKS_CACHE_KEY, treeData)
 		}

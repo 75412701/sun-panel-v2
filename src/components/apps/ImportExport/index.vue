@@ -157,7 +157,6 @@ onMounted(() => {
 
 function handleFileChange(options: { file: UploadFileInfo; fileList: Array<UploadFileInfo> }) {
   uploadLoading.value = true
-  console.log(options.file.file)
   if (options.file.file) {
     const reader = new FileReader()
     reader.onload = () => {
@@ -195,7 +194,6 @@ function importCheck() {
         // 通过了验证,打开弹窗
         importRoundModalShow.value = !importRoundModalShow.value
 
-        // console.log(importObj.value.geticons())
       }
     }
     catch (error) {
@@ -217,17 +215,13 @@ function importCheck() {
 // 开始导出
 async function handleStartExport() {
   loading.value = true
-  // console.log('要导出的项目', checkedItems.value)
   // 获取软件版本号
   const exportResult = exportJson(version.value)
   if (checkedItems.value.includes('icons')) {
-    console.log('export icons ...')
     const iconGroups = await exportIcons()
     exportResult.addIconsData(iconGroups)
-    console.log('export icons finish', iconGroups)
   }
 
-  // console.log('导出结果')
 
   jsonData.value = exportResult.string()
   exportResult.exportFile()
@@ -240,7 +234,6 @@ async function handleStartExport() {
 async function handleStartImport() {
   loading.value = true
   if (checkedItems.value.includes('icons')) {
-    console.log('export icons ...')
     const errMsg = await importIcons()
     if (errMsg !== null)
       ms.success(`${t('common.failed')}:${errMsg}`)

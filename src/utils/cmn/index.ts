@@ -77,11 +77,9 @@ export function noticeCreate(info: Notice.NoticeInfo) {
             if (info.id) {
               if (info.isLogin === 1 && userStore.userInfo.username) {
                 noticeStore.setReadByUsername(userStore.userInfo.username, info.id)
-                console.log('设置用户已读', info.id)
               }
               else {
                 noticeStore.setReadByGlobal(info.id)
-                console.log('设置全局已读', info.id)
               }
             }
             n.destroy()
@@ -116,7 +114,6 @@ export async function updateLocalUserInfo() {
     // 1. 首先尝试从缓存读取数据
     const cachedData = ss.get(USER_AUTH_INFO_CACHE_KEY)
     if (cachedData) {
-      console.log('从缓存加载用户认证信息')
       userStore.updateUserInfo({ headImage: cachedData.user.headImage, name: cachedData.user.name })
       authStore.setUserInfo(cachedData.user)
       authStore.setVisitMode(cachedData.visitMode)
@@ -124,14 +121,13 @@ export async function updateLocalUserInfo() {
     }
 
     // 2. 缓存中没有数据，请求接口获取数据
-    console.log('从接口加载用户认证信息')
     const { data } = await getAuthInfo<Req>()
-    
+
     // 更新store
     userStore.updateUserInfo({ headImage: data.user.headImage, name: data.user.name })
     authStore.setUserInfo(data.user)
     authStore.setVisitMode(data.visitMode)
-    
+
     // 3. 将数据永久保存到缓存中
     ss.set(USER_AUTH_INFO_CACHE_KEY, data)
   } catch (error) {
@@ -139,7 +135,6 @@ export async function updateLocalUserInfo() {
     // 出错时尝试从缓存获取
     const cachedData = ss.get(USER_AUTH_INFO_CACHE_KEY)
     if (cachedData) {
-      console.log('出错后从缓存加载用户认证信息')
       userStore.updateUserInfo({ headImage: cachedData.user.headImage, name: cachedData.user.name })
       authStore.setUserInfo(cachedData.user)
       authStore.setVisitMode(cachedData.visitMode)
@@ -163,34 +158,6 @@ export async function getNotice(displayType: number | number[]) {
   }
 }
 
-// 权限受限暂时不用
-// export async function getFaviconUrl(url: string, extName = 'ico'): Promise<string | null> {
-//   try {
-//     // 获取网址的域名
-//     const { protocol, host } = new URL(url)
-//     const domain = `${protocol}//${host}`
-
-//     // 构建 favicon URL
-//     const faviconUrl = `${domain}/favicon.${extName}`
-
-//     // 检查 favicon 是否存在，包含 CORS 头部
-//     const response = await fetch(faviconUrl, { method: 'HEAD', mode: 'cors' })
-
-//     // 如果请求成功，返回 favicon URL
-//     if (response.ok) {
-//       return faviconUrl
-//     }
-//     else {
-//       console.log('Favicon not found.')
-//       return null
-//     }
-//   }
-//   catch (error) {
-//     // 如果出现错误，返回 null，表示找不到 favicon
-//     console.error('Error:', error)
-//     return null
-//   }
-// }
 
 export function getFaviconUrl(url: string): string {
   // 获取网址的域名

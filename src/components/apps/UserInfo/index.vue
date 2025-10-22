@@ -73,7 +73,6 @@ async function logoutApi() {
   panelState.removeState()
   appStore.removeToken()
   // 清除用户认证信息缓存
-  console.log('登出时清除用户认证信息缓存')
   ss.remove(USER_AUTH_INFO_CACHE_KEY)
   ms.success(t('settingUserInfo.logoutSuccess'))
   // router.push({ path: '/login' })
@@ -84,7 +83,6 @@ function handleSaveInfo() {
   updateInfo(nickName.value).then(({ code, msg }) => {
     if (code === 0) {
       // 清除缓存，确保下次获取最新数据
-      console.log('修改用户信息时清除缓存')
       ss.remove(USER_AUTH_INFO_CACHE_KEY)
       // 重新加载用户信息
       updateLocalUserInfo()
@@ -100,7 +98,6 @@ function handleUpdatePassword(e: MouseEvent) {
   e.preventDefault()
   formRef.value?.validate((errors) => {
     if (errors) {
-      console.log(errors)
       return
     }
 
@@ -115,7 +112,6 @@ function handleUpdatePassword(e: MouseEvent) {
         updatePasswordModalState.value.show = false
         ms.success(t('common.success'))
         // 清除用户认证信息缓存
-        console.log('修改密码时清除用户认证信息缓存')
         ss.remove(USER_AUTH_INFO_CACHE_KEY)
       }
     }).finally(() => {
@@ -158,7 +154,7 @@ function handleChangeTheme(value: Theme) {
         <div class="text-slate-500 font-bold">
           {{ $t('common.username') }}
         </div>
-        
+
         <div>
           {{ authStore.userInfo?.username }}
         </div>

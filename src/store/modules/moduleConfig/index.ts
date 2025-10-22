@@ -8,52 +8,30 @@ export const useModuleConfig = defineStore('module-config-store', {
   state: (): ModuleConfigState => getLocalState(),
   actions: {
 
-    // 保存
-    // save(name: string, value: any) {
-    //   const moduleName = `module-${name}`
-    //   // 保存至网络
-    //   console.log('保存模块配置', name, value)
-    //   this.$state[moduleName] = value
-    //   this.recordState()
-    //   save(moduleName, value)
-    // },
-
-    // // 获取值
-    // getValueByName<T>(name: string): T | null {
-    //   const moduleName = `module-${name}`
-    //   this.syncFromCloud(moduleName)
-    //   if (this.$state[moduleName])
-    //     return this.$state[moduleName]
-    //   return null
-    // },
-
     // 获取值（带缓存）
     async getValueByNameFromCloud<T>(name: string) {
       const moduleName = `module-${name}`
       const cacheKey = `moduleConfig_${moduleName}`
-      
+
       try {
         // 1. 首先尝试从缓存读取数据
         const cachedData = ss.get(cacheKey)
         if (cachedData) {
-          console.log(`从缓存加载模块配置: ${name}`)
           return cachedData
         }
 
         // 2. 缓存中没有数据，请求接口获取数据
-        console.log(`从接口加载模块配置: ${name}`)
         const response = await getValueByName<T>(moduleName)
-        
+
         // 3. 将数据永久保存到缓存中
         ss.set(cacheKey, response)
-        
+
         return response
       } catch (error) {
         console.error(`获取模块配置失败: ${name}`, error)
         // 如果出错，尝试从缓存获取
         const cachedData = ss.get(cacheKey)
         if (cachedData) {
-          console.log(`出错后从缓存加载模块配置: ${name}`)
           return cachedData
         }
         // 如果缓存也没有，抛出错误
@@ -65,16 +43,15 @@ export const useModuleConfig = defineStore('module-config-store', {
     async saveToCloud(name: string, value: any) {
       const moduleName = `module-${name}`
       const cacheKey = `moduleConfig_${moduleName}`
-      
+
       // 保存至网络
       const response = await save(moduleName, value)
-      
+
       // 如果保存成功，清除对应缓存，下次获取时重新缓存
       if (response.code === 0) {
-        console.log(`清除模块配置缓存: ${name}`)
         ss.remove(cacheKey)
       }
-      
+
       return response
     },
 
