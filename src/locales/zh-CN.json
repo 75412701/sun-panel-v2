@@ -147,14 +147,15 @@
     "settings": {
       "appName": "设置",
       "comingSoon": "敬请期待...",
-      "networkDetection": "自动判断内外网",
-      "pingUrlHint": "下方填写:当前内网打开网址，例如http://192.168.1.1:3000/ping",
-      "pingUrlPlaceholder": "http://192.168.1.1:3000/ping",
-      "testConnection": "测试连接",
-      "connectionSuccess": "连接正常",
-      "connectionFailed": "连接失败",
-      "testing": "测试中...",
-      "pleaseEnterUrl": "请输入URL地址"
+      "networkDetection": "智能自动判断内外网",
+      "networkDetectionDesc": "系统已启用全自动内外网智能识别（无需手动填写网址），服务端每 10 分钟自动更新公网 IP，智能识别内网网段及 NAT 回环。点击应用时将自动优先选择内网或公网地址。",
+      "testConnection": "测试网络识别",
+      "connectionSuccess": "内网环境 (LAN)",
+      "connectionWan": "外网环境 (WAN)",
+      "connectionFailed": "检测失败",
+      "testing": "检测中...",
+      "clientIp": "当前客户端 IP",
+      "serverPublicIp": "服务端公网 IP"
     },
     "itemGroupManage": {
       "appName": "分组管理",

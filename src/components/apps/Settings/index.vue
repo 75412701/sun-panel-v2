@@ -1,131 +1,73 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NButton, NCard, NInput, useMessage } from 'naive-ui'
+import { NButton, NCard, NTag } from 'naive-ui'
 import { t } from '@/locales'
-import { setSystemSettings, getSystemSettings } from '@/api/system/systemSetting'
 
-const ms = useMessage()
-
-// 自动判断内外网设置
-const pingUrl = ref('http://192.168.1.1:3000/ping')
-const testStatus = ref<'idle' | 'testing' | 'success' | 'failed'>('idle')
+// 自动判断内外网测试
+const testStatus = ref<'idle' | 'testing' | 'success_lan' | 'success_wan' | 'failed'>('idle')
 const isTesting = ref(false)
-const isSaving = ref(false)
-const isLoading = ref(false)
+const clientIp = ref('')
+const serverPublicIp = ref('')
 
-// 加载设置
-async function loadSettings() {
-  isLoading.value = true
-  try {
-    const response = await getSystemSettings<Record<string, string>>(['pingUrl'])
-    if (response.code === 0 && response.data) {
-      // 如果有保存的值,使用保存的值
-      if (response.data.pingUrl) {
-        pingUrl.value = response.data.pingUrl
-      }
-    }
-  } catch (error) {
-    console.error('加载设置失败:', error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// 测试连接
+// 测试连接与内外网识别
 async function testConnection() {
-  if (!pingUrl.value.trim()) {
-    ms.warning(t('apps.settings.pleaseEnterUrl'))
-    return
-  }
-
-  // 确保URL包含协议
-  let url = pingUrl.value.trim()
-  if (!url.startsWith('http://') && !url.startsWith('http://')) {
-    url = 'http://' + url
-  }
-
   isTesting.value = true
   testStatus.value = 'testing'
 
   try {
-    // 创建AbortController用于超时控制
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 150)
+    const timeoutId = setTimeout(() => controller.abort(), 3000)
 
-    // 使用 no-cors 模式避免 CORS 错误
-    // 这种模式下无法读取响应内容,但可以判断请求是否成功发出
-    const response = await fetch(url, {
+    const response = await fetch('/ping', {
       method: 'GET',
-      // mode: 'no-cors', // 移除 no-cors 以获取状态码
       signal: controller.signal,
     })
 
     clearTimeout(timeoutId)
 
-    if (response.status === 200) {
-      testStatus.value = 'success'
-    } else {
-      testStatus.value = 'failed'
+    if (response.ok) {
+      const res = await response.json()
+      if (res.code === 0 && res.data) {
+        clientIp.value = res.data.clientIp || ''
+        serverPublicIp.value = res.data.serverPublicIp || ''
+        if (res.data.isLan) {
+          testStatus.value = 'success_lan'
+        } else {
+          testStatus.value = 'success_wan'
+        }
+        return
+      }
     }
+    testStatus.value = 'failed'
   } catch (error: any) {
-    // 超时或其他错误(包括地址不可达)
     testStatus.value = 'failed'
   } finally {
     isTesting.value = false
   }
 }
 
-// 保存设置
-async function saveSettings() {
-  isSaving.value = true
-  try {
-    const response = await setSystemSettings({
-      pingUrl: pingUrl.value,
-    })
-    
-    if (response.code === 0) {
-      ms.success(t('common.saveSuccess'))
-    } else {
-      ms.error(t('common.saveFail') + ': ' + response.msg)
-    }
-  } catch (error) {
-    console.error('保存设置失败:', error)
-    ms.error(t('common.saveFail'))
-  } finally {
-    isSaving.value = false
-  }
-}
-
-// 组件挂载时加载设置
 onMounted(() => {
-  loadSettings()
+  testConnection()
 })
 </script>
 
 <template>
   <div class="bg-slate-200 dark:bg-zinc-900 rounded-[10px] p-[8px] overflow-auto">
-    <!-- 网络检测设置 -->
+    <!-- 智能内外网检测设置 -->
     <NCard style="border-radius:10px" size="small">
-      <div class="text-slate-500 mb-[5px] font-bold">
+      <div class="text-slate-500 mb-[5px] font-bold text-base">
         {{ t('apps.settings.networkDetection') }}
       </div>
 
-      <div class="mt-[15px]">
-        <div class="text-sm text-gray-600 dark:text-gray-400 mb-[5px]">
-          {{ t('apps.settings.pingUrlHint') }}
-        </div>
-        <NInput
-          v-model:value="pingUrl"
-          type="text"
-          :placeholder="t('apps.settings.pingUrlPlaceholder')"
-          clearable
-        />
+      <div class="mt-[10px] text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+        {{ t('apps.settings.networkDetectionDesc') }}
       </div>
 
-      <!-- 测试连接按钮 -->
-      <div class="flex items-center mt-[10px]">
+      <!-- 测试连接按钮及结果 -->
+      <div class="flex flex-wrap items-center gap-3 mt-[15px]">
         <NButton
           size="small"
+          type="primary"
           :loading="isTesting"
           @click="testConnection"
         >
@@ -133,32 +75,49 @@ onMounted(() => {
         </NButton>
 
         <!-- 状态显示 -->
-        <span
-          v-if="testStatus === 'success'"
-          class="ml-[10px] text-green-600 dark:text-green-400"
+        <NTag
+          v-if="testStatus === 'success_lan'"
+          type="success"
+          size="small"
+          round
         >
           ✓ {{ t('apps.settings.connectionSuccess') }}
-        </span>
-        <span
+        </NTag>
+        <NTag
+          v-else-if="testStatus === 'success_wan'"
+          type="info"
+          size="small"
+          round
+        >
+          🌐 {{ t('apps.settings.connectionWan') }}
+        </NTag>
+        <NTag
           v-else-if="testStatus === 'failed'"
-          class="ml-[10px] text-red-600 dark:text-red-400"
+          type="error"
+          size="small"
+          round
         >
           ✗ {{ t('apps.settings.connectionFailed') }}
-        </span>
+        </NTag>
         <span
           v-else-if="testStatus === 'testing'"
-          class="ml-[10px] text-gray-600 dark:text-gray-400"
+          class="text-sm text-gray-600 dark:text-gray-400"
         >
           {{ t('apps.settings.testing') }}
         </span>
       </div>
-    </NCard>
 
-    <!-- 保存按钮 -->
-    <NCard style="border-radius:10px" class="mt-[10px]" size="small">
-      <NButton size="small" type="primary" :loading="isSaving" @click="saveSettings">
-        {{ $t('common.save') }}
-      </NButton>
+      <!-- 诊断详情 -->
+      <div v-if="clientIp || serverPublicIp" class="mt-[12px] p-[10px] bg-gray-100 dark:bg-zinc-800 rounded-lg text-xs space-y-1 text-gray-700 dark:text-gray-300">
+        <div v-if="clientIp">
+          <span class="font-medium text-gray-500 dark:text-gray-400">{{ t('apps.settings.clientIp') }}:</span>
+          <span class="ml-2 font-mono">{{ clientIp }}</span>
+        </div>
+        <div v-if="serverPublicIp">
+          <span class="font-medium text-gray-500 dark:text-gray-400">{{ t('apps.settings.serverPublicIp') }}:</span>
+          <span class="ml-2 font-mono">{{ serverPublicIp }}</span>
+        </div>
+      </div>
     </NCard>
   </div>
 </template>

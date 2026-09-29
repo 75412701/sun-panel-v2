@@ -16,7 +16,7 @@ import { router } from '@/router'
 import { onBeforeRouteUpdate } from 'vue-router'
 import { t } from '@/locales'
 import {  computed } from "vue"
-import { useWindowSize, useStorage } from "@vueuse/core"
+import { useWindowSize } from "@vueuse/core"
 import { NDrawer, NDrawerContent, NTree,  } from "naive-ui"
 interface ItemGroup extends Panel.ItemIconGroup {
   sortStatus?: boolean
@@ -125,7 +125,6 @@ const isMobile = computed(() => width.value < 768)
 import { getList as getBookmarksList } from '@/api/panel/bookmark'
 import { getList as getGroupList } from '@/api/panel/itemIconGroup'
 import { ss } from '@/utils/storage/local'
-import { getSystemSettings } from '@/api/system/systemSetting'
 
 
 // 书签数据树
@@ -136,30 +135,35 @@ const GROUP_LIST_CACHE_KEY = 'groupListCache'
 // 图标列表缓存键前缀
 const ITEM_ICON_LIST_CACHE_KEY_PREFIX = 'itemIconList_'
 
-const systemPingUrl = useStorage('systemPingUrl', '')
+// 智能内外网检测缓存 (有效期 10 秒)
+let intranetCheckCache: { isLan: boolean; timestamp: number } | null = null
 
 // 检测内网连接
 async function checkIntranetConnection(): Promise<boolean> {
-  if (!systemPingUrl.value) return false
-
-  let url = systemPingUrl.value.trim()
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    url = 'http://' + url
+  const now = Date.now()
+  if (intranetCheckCache && now - intranetCheckCache.timestamp < 10000) {
+    return intranetCheckCache.isLan
   }
 
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 150)
+  const timeoutId = setTimeout(() => controller.abort(), 1000)
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch('/ping', {
       method: 'GET',
-      signal: controller.signal
+      signal: controller.signal,
     })
     clearTimeout(timeoutId)
-    return response.status === 200
+    if (response.ok) {
+      const res = await response.json()
+      const isLan = !!(res?.data?.isLan ?? false)
+      intranetCheckCache = { isLan, timestamp: Date.now() }
+      return isLan
+    }
   } catch (e) {
-    return false
+    // 忽略异常，降级为非内网
   }
+  return false
 }
 
 
@@ -489,9 +493,8 @@ async function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
   let jumpUrl = publicUrl
 
   // 检查是否需要进行内网探测
-  // 条件：有内网地址 AND 内网地址有效 AND 系统配置了PingUrl
-  // 注意：这里我们检查原始的 item.lanUrl 是否有效，但使用标准化的 lanUrl 进行跳转
-  const shouldCheckIntranet = isValidUrl(item.lanUrl) && systemPingUrl.value
+  // 条件：有内网地址 AND 内网地址有效
+  const shouldCheckIntranet = isValidUrl(item.lanUrl)
 
   if (shouldCheckIntranet) {
     // 情况1：新窗口打开 (openMethod === 2)
@@ -505,7 +508,7 @@ async function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
         // 确定最终URL
         let finalUrl = publicUrl
         if (isIntranet && isValidUrl(item.lanUrl)) {
-             finalUrl = lanUrl
+          finalUrl = lanUrl
         }
 
         newWindow.location.href = finalUrl
@@ -853,17 +856,8 @@ onMounted(async () => {
   updateLocalUserInfo()
   getList()
 
-  // 加载Ping Url设置
-  try {
-    if (!systemPingUrl.value) {
-      const res = await getSystemSettings<{pingUrl: string}>(['pingUrl'])
-      if (res.code === 0 && res.data && res.data.pingUrl) {
-        systemPingUrl.value = res.data.pingUrl
-      }
-    }
-  } catch (error) {
-    console.error('获取Ping Url设置失败', error)
-  }
+  // 预热内外网环境状态
+  checkIntranetConnection()
 
   // 更新同步云端配置
   panelState.updatePanelConfigByCloud()

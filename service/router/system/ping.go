@@ -27,6 +27,7 @@ func PingCors() gin.HandlerFunc {
 func InitPingRouter(router *gin.RouterGroup) {
 	ping := api_v1.ApiGroupApp.ApiSystem.Ping
 	router.GET("ping", PingCors(), ping.Get)
+	router.POST("ping", PingCors(), ping.Get)
 	router.OPTIONS("ping", PingCors(), func(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNoContent)
 	})

@@ -10,6 +10,7 @@ import (
 	"sun-panel/initialize/database"
 	"sun-panel/initialize/lang"
 	"sun-panel/initialize/other"
+	"sun-panel/initialize/publicIP"
 	"sun-panel/initialize/redis"
 	"sun-panel/initialize/runlog"
 	"sun-panel/initialize/systemSettingCache"
@@ -90,6 +91,7 @@ func InitApp() error {
 	global.VerifyCodeCachePool = other.InitVerifyCodeCachePool()
 	global.SystemSetting = systemSettingCache.InItSystemSettingCache()
 	global.SystemMonitor = global.NewCache[interface{}](5*time.Hour, -1, "systemMonitorCache")
+	publicIP.InitPublicIP()
 
 	// 异步执行耗时任务，延迟5秒启动，避免阻塞服务器启动日志
 	go func() {

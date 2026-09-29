@@ -8,6 +8,8 @@ import (
 	"sun-panel/lib/language"
 	"sun-panel/models"
 
+	"sync"
+
 	redis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -37,4 +39,19 @@ var (
 	SystemSetting       *systemSetting.SystemSettingCache
 	SystemMonitor       cache.Cacher[interface{}]
 	RateLimit           *RateLimiter
+
+	ServerPublicIP      = ""
+	ServerPublicIPMutex = sync.RWMutex{}
 )
+
+func GetServerPublicIP() string {
+	ServerPublicIPMutex.RLock()
+	defer ServerPublicIPMutex.RUnlock()
+	return ServerPublicIP
+}
+
+func SetServerPublicIP(ip string) {
+	ServerPublicIPMutex.Lock()
+	defer ServerPublicIPMutex.Unlock()
+	ServerPublicIP = ip
+}
