@@ -4,7 +4,7 @@ FROM node:18-alpine AS web_image
 # 使用淘宝npm镜像源加速依赖安装
 RUN npm config set registry https://registry.npmmirror.com
 
-RUN npm install pnpm -g
+RUN npm install -g pnpm@9
 
 # 配置 pnpm 使用淘宝镜像源
 RUN pnpm config set registry https://registry.npmmirror.com
@@ -12,7 +12,7 @@ RUN pnpm config set registry https://registry.npmmirror.com
 WORKDIR /build
 
 # 先复制依赖文件（利用 Docker 缓存层）
-COPY package.json package-lock.json pnpm-lock.yaml ./
+COPY package*.json pnpm-lock.ya*ml* ./
 
 # 安装依赖
 RUN pnpm install
