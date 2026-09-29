@@ -97,13 +97,6 @@ services:
     restart: always
 ```
 
-## 🍵 捐赠
-
-> 开源开发并不容易。如果你觉得我的项目对你有所帮助，欢迎你[捐款](./doc/donate.md)或请我喝杯茶☕（如果可能的话，请在备注中留下你的昵称或姓名）。你的支持就是我的动力，谢谢。
-
-
-
-<img height="300" src="./doc/images/donate/weixin.png"/>
 
 
 
