@@ -48,3 +48,14 @@ export function deletes<T>(ids: number[]) {
     data: { ids },
   })
 }
+
+/**
+ * 批量保存书签排序
+ */
+export function saveSort<T>(sortItems: { id: number; sort: number; parentId?: number }[]) {
+  return post<T>({
+    url: '/panel/bookmark/saveSort',
+    data: { sortItems },
+  })
+}
+

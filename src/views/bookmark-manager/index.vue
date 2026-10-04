@@ -290,7 +290,7 @@ import { ref, computed, onMounted, onUnmounted, h, watch, nextTick } from 'vue'
 // 不再直接导入SVG文件，使用内联方式
 import { NTree, NInput, useMessage, NTreeSelect } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import { getList as getBookmarksList, add as addBookmark, update, deletes, addMultiple as addMultipleBookmarks } from '@/api/panel/bookmark'
+import { getList as getBookmarksList, add as addBookmark, update, deletes, saveSort as saveBookmarkSort, addMultiple as addMultipleBookmarks } from '@/api/panel/bookmark'
 import { t } from '@/locales'
 import { dialog } from '@/utils/request/apiMessage'
 import { ss } from '@/utils/storage/local'
@@ -1349,240 +1349,131 @@ async function handleDrop(event: DragEvent, targetItem: any) {
 	if (draggedIndex !== -1 && targetIndex !== -1) {
 		// 实现插入排序的逻辑
 		// 步骤1：获取当前文件夹的所有项目并按sort排序
-			const sortedFolderItems = [...currentFolderItems].sort((a, b) => (a.sort || 0) - (b.sort || 0));
+		const sortedFolderItems = [...currentFolderItems].sort((a, b) => (a.sort || 0) - (b.sort || 0));
 
+		// 步骤2：找到拖拽项和目标项在排序后的索引
+		const sortedDraggedIndex = sortedFolderItems.findIndex(item => String(item.id) === String(draggedItemData.id));
+		const sortedTargetIndex = sortedFolderItems.findIndex(item => String(item.id) === String(targetItem.id));
 
-			// !!! 新增: 检测并修复重复的sort值 !!!
-			const sortValues = sortedFolderItems.map(item => item.sort || 0);
-			const hasDuplicates = sortValues.some((val, idx) => sortValues.indexOf(val) !== idx);
+		// 步骤3：根据插入位置确定新的索引
+		let newIndex: number;
+		if (dragInsertPosition.value === 'before') {
+			newIndex = sortedTargetIndex;
+		} else if (dragInsertPosition.value === 'after') {
+			newIndex = sortedTargetIndex + 1;
+		} else {
+			// 默认行为 - 如果没有插入位置，则根据原始索引决定
+			newIndex = draggedIndex < targetIndex ? targetIndex : targetIndex + 1;
+		}
 
-			if (hasDuplicates) {
+		// 步骤4：从排序数组中移除拖拽项并插入到新位置
+		const updatedItems = [...sortedFolderItems];
+		updatedItems.splice(sortedDraggedIndex, 1);
+		// 修正插入索引：如果新索引在拖拽项之后，需要减1（因为移除操作使后续项前移了）
+		const adjustedNewIndex = newIndex > sortedDraggedIndex ? newIndex - 1 : newIndex;
+		updatedItems.splice(adjustedNewIndex, 0, draggedItemData);
 
-
-				// 重新分配连续的sort值 (1, 2, 3...)
-					const normalizedItems = sortedFolderItems.map((item, index) => ({
-						id: Number(item.id),
-						title: item.title,
-						url: item.isFolder ? item.title : (item.url || ''),
-						parentId: Number(draggedFolderId),
-						sort: index + 1, // 从1开始的连续值
-						lanUrl: (item as any).lanUrl || '',
-						openMethod: (item as any).openMethod || 0,
-						icon: (item as any).icon || null,
-						iconJson: item.iconJson || ''
-					}));
-
-
-
-				// 更新本地sort值
-				for (const normalizedItem of normalizedItems) {
-					const originalItem = sortedFolderItems.find(item => Number(item.id) === normalizedItem.id);
-					if (originalItem) {
-						originalItem.sort = normalizedItem.sort;
-					}
-				}
-
-				// 同步到服务器(异步,不阻塞拖动操作)
-				Promise.all(normalizedItems.map(item => update(item)))
-					.then(() => {})
-					.catch(err => console.error('✗ Sort值规范化同步失败:', err));
-			}
-
-			// 步骤2：找到拖拽项和目标项在排序后的索引
-			const sortedDraggedIndex = sortedFolderItems.findIndex(item => String(item.id) === String(draggedItemData.id));
-			const sortedTargetIndex = sortedFolderItems.findIndex(item => String(item.id) === String(targetItem.id));
-
-			// 步骤3：根据插入位置确定新的索引
-			let newIndex;
-			if (dragInsertPosition.value === 'before') {
-				newIndex = sortedTargetIndex;
-			} else if (dragInsertPosition.value === 'after') {
-				newIndex = sortedTargetIndex + 1;
-			} else {
-				// 默认行为 - 如果没有插入位置，则根据原始索引决定
-				newIndex = draggedIndex < targetIndex ? targetIndex : targetIndex + 1;
-			}
-
-			// 步骤4：从排序数组中移除拖拽项并插入到新位置
-			const updatedItems = [...sortedFolderItems];
-			updatedItems.splice(sortedDraggedIndex, 1);
-			// 修正插入索引：如果新索引在拖拽项之后，需要减1（因为移除操作使后续项前移了）
-			const adjustedNewIndex = newIndex > sortedDraggedIndex ? newIndex - 1 : newIndex;
-			updatedItems.splice(adjustedNewIndex, 0, draggedItemData);
-
-			// 步骤5：确定需要更新的索引范围（使用调整后的索引）
-			const originalIndex = sortedDraggedIndex;
-			const startUpdateIndex = Math.min(adjustedNewIndex, originalIndex);
-			const endUpdateIndex = Math.max(adjustedNewIndex, originalIndex);
-
-			// 步骤6：更新受影响的项目的sort值
-				// 注意：现在updatedItems已经是重新排列后的数组，我们需要更新所有受影响项的sort值
-				const itemsToUpdate = updatedItems.slice(startUpdateIndex, endUpdateIndex + 1).map((item, offset) => ({
-					id: Number(item.id),
-					title: item.title,
-					url: item.isFolder ? item.title : (item.url || ''),
-					parentId: Number(draggedFolderId),
-					sort: startUpdateIndex + 1 + offset, // 新的sort值基于起始索引加偏移量
-					lanUrl: (item as any).lanUrl || '',
-					openMethod: (item as any).openMethod || 0,
-					icon: (item as any).icon || null,
-					iconJson: item.iconJson || ''
-				}));
+		// 步骤5：为当前文件夹所有项分配连续且唯一的 sort 值 (1, 2, 3...)
+		const sortItems = updatedItems.map((item, index) => ({
+			id: Number(item.id),
+			sort: index + 1,
+			parentId: Number(draggedFolderId),
+		}));
 
 		try {
 			// === 步骤1: 先立即更新本地UI,实现乐观更新 ===
-
 			const updateLocalItemSort = (itemId: number, newSort: number) => {
-
-
-					// 递归更新fullData树形结构中的sort值
-					const updateFullDataSort = (nodes: any[]): boolean => {
-						for (let i = 0; i < nodes.length; i++) {
-							const node = nodes[i];
-							// 处理两种节点结构：直接有id的节点 和 id在bookmark属性内的节点
-							const nodeId = Number(node.id) || Number(node.key) || Number(node.bookmark?.id);
-							if (nodeId === itemId) {
-
-								// 根据节点类型更新sort值
-								if (node.bookmark) {
-									// bookmarkTree结构中的节点
-									node.bookmark.sort = newSort;
-									node.sort = newSort;
-								} else {
-									// 直接节点结构
-									node.sort = newSort;
-								}
-								return true;
+				// 递归更新树形结构中的sort值
+				const updateNodeSort = (nodes: any[]): boolean => {
+					for (const node of nodes) {
+						const nodeId = Number(node.id) || Number(node.key) || Number(node.bookmark?.id);
+						if (nodeId === itemId) {
+							if (node.bookmark) {
+								node.bookmark.sort = newSort;
 							}
-							if (node.children && node.children.length) {
-								if (updateFullDataSort(node.children)) {
-									return true;
-								}
+							node.sort = newSort;
+							if (node.rawNode) {
+								node.rawNode.sort = newSort;
 							}
+							return true;
 						}
-						return false;
-					};
-
-					// 递归更新bookmarkTree结构中的sort值
-					const updateTreeSort = (nodes: any[]): boolean => {
-						for (const node of nodes) {
-							// 处理两种节点结构：文件夹节点(使用node.id/node.key) 和 书签节点(使用node.bookmark.id)
-							const nodeId = Number(node.id) || Number(node.key) || Number(node.bookmark?.id);
-							if (nodeId === itemId) {
-
-								// 根据节点类型更新sort值
-								if (node.bookmark) {
-									node.bookmark.sort = newSort;
-								}
-								node.sort = newSort;
-								return true;
-							}
-							if (node.children?.length) {
-								if (updateTreeSort(node.children)) return true;
-							}
+						if (node.children?.length) {
+							if (updateNodeSort(node.children)) return true;
 						}
-						return false;
-					};
+					}
+					return false;
+				};
 
-			// 执行更新
-			const foundInFullData = updateFullDataSort(fullData.value);
-			const foundInTree = updateTreeSort(bookmarkTree.value);
-			if (!foundInFullData && !foundInTree) {
-
-			}
+				updateNodeSort(fullData.value);
+				updateNodeSort(bookmarkTree.value);
 			};
 
 			// 更新所有项目的排序值
-			for (const item of itemsToUpdate) {
-				updateLocalItemSort(Number(item.id), item.sort);
+			for (const item of sortItems) {
+				updateLocalItemSort(item.id, item.sort);
 			}
 
-			// 递归排序children数组的实际顺序，以及更新sort值
+			// 递归排序children数组的实际顺序
 			const sortAllChildren = (nodes: any[]) => {
 				for (const node of nodes) {
 					if (node.children?.length) {
-						// !!! 关键: 按sort值重新排序children数组 !!!
 						node.children.sort((a: any, b: any) => {
-							const aSort = a.bookmark?.sort || a.sort || 0;
-							const bSort = b.bookmark?.sort || b.sort || 0;
+							const aSort = a.bookmark?.sort || a.sort || a.rawNode?.sort || 0;
+							const bSort = b.bookmark?.sort || b.sort || b.rawNode?.sort || 0;
 							return aSort - bSort;
 						});
-						// 递归处理子节点
 						sortAllChildren(node.children);
 					}
 				}
 			};
 
-
-
 			// 同时排序根级节点
-			fullData.value.sort((a, b) => (a.sort || 0) - (b.sort || 0));
-
-
-
-			// 执行递归排序
+			fullData.value.sort((a, b) => (a.sort || a.rawNode?.sort || 0) - (b.sort || b.rawNode?.sort || 0));
 			sortAllChildren(fullData.value);
 			sortAllChildren(bookmarkTree.value);
 
-			// !!! 关键: 创建新的数组引用来触发Vue响应式更新 !!!
-			// 这会触发 allItems 计算属性重新计算,然后 filteredBookmarks 也会重新计算
+			// 触发Vue响应式更新
 			fullData.value = [...fullData.value];
 			bookmarkTree.value = [...bookmarkTree.value];
 
+			// 存储更新后的书签树到本地缓存
+			const processCacheNode = (node: TreeOption) => {
+				const parentId = node.rawNode?.parentId || node.ParentId || '0';
+				const rawNode = { ...node.rawNode };
+				if (!node.isFolder && rawNode.iconJson) {
+					delete rawNode.iconJson;
+				}
 
-
-
-			// 调试：检查数据是否正确更新
-
-
-			// Helper function to process nodes recursively for cache
-				const processCacheNode = (node: TreeOption) => {
-					// Extract parentId correctly from rawNode or ParentId property
-					const parentId = node.rawNode?.parentId || node.ParentId || '0';
-
-					// Process the current node - Explicitly select properties to avoid circular references or unwanted properties during serialization
-					// 优化：从rawNode中移除iconJson以减少缓存大小
-					const rawNode = { ...node.rawNode };
-					if (!node.isFolder && rawNode.iconJson) {
-						delete rawNode.iconJson;
-					}
-
-					const processedNode: TreeOption = {
-						key: node.key,
-						label: node.label,
-						isLeaf: node.isLeaf,
-						isFolder: node.isFolder,
-						bookmark: node.bookmark,
-						rawNode: rawNode,
-						disabledExpand: node.disabledExpand,
-						sort: node.sort,
-						ParentId: parentId.toString(),
-						children: [] // 先设置为空数组
-					};
-
-					// Recursively process children - 保持原始顺序
-					if (node.children && node.children.length > 0) {
-						// !!! 关键: 按顺序遍历children,保持已排好序的顺序 !!!
-						processedNode.children = node.children.map((child: TreeOption) => processCacheNode(child));
-					}
-
-					return processedNode;
+				const processedNode: TreeOption = {
+					key: node.key,
+					label: node.label,
+					isLeaf: node.isLeaf,
+					isFolder: node.isFolder,
+					bookmark: node.bookmark,
+					rawNode: rawNode,
+					disabledExpand: node.disabledExpand,
+					sort: node.sort,
+					ParentId: parentId.toString(),
+					children: []
 				};
 
+				if (node.children && node.children.length > 0) {
+					processedNode.children = node.children.map((child: TreeOption) => processCacheNode(child));
+				}
 
+				return processedNode;
+			};
 
-			// 存储完整的书签树数据（包含排序信息）到缓存，使用与页面加载一致的格式
 			const processedCache = fullData.value.map(processCacheNode);
 			ss.set(BOOKMARKS_CACHE_KEY, processedCache);
-			// === 步骤2: 异步同步到服务器 ===
 
-			// 在后台异步更新服务器,不阻塞UI
-			Promise.all(itemsToUpdate.map(item => update(item)))
+			// === 步骤2: 批量同步到服务器 (单次事务请求) ===
+			saveBookmarkSort(sortItems)
 				.then(() => {
-
+					// 批量保存成功
 				})
 				.catch((error) => {
-					console.error('服务器同步失败,回滚本地数据:', error);
+					console.error('服务器排序保存失败,回滚本地数据:', error);
 					ms.error('排序保存失败,已恢复');
 					// 同步失败时,从服务器重新拉取数据
 					refreshBookmarks(true);
@@ -1592,7 +1483,6 @@ async function handleDrop(event: DragEvent, targetItem: any) {
 			ms.error('排序更新失败');
 		}
 	} else {
-
 		ms.warning('排序更新失败：找不到相关项目');
 	}
 
@@ -2226,8 +2116,8 @@ function convertServerTreeToFrontendTree(serverTree: any[]): TreeOption[] {
 			frontendNode.children = children.map((child: any) => processNode(child));
 			// 按sort值对children排序
 			frontendNode.children.sort((a, b) => {
-				const sortA = a.rawNode?.sort ?? 0;
-				const sortB = b.rawNode?.sort ?? 0;
+				const sortA = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+				const sortB = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
 				return sortA - sortB;
 			});
 		}
@@ -2242,8 +2132,8 @@ function convertServerTreeToFrontendTree(serverTree: any[]): TreeOption[] {
 
 	// 按sort值对根节点排序
 	result.sort((a, b) => {
-		const sortA = a.rawNode?.sort ?? 0;
-		const sortB = b.rawNode?.sort ?? 0;
+		const sortA = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+		const sortB = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
 		return sortA - sortB;
 	});
 
@@ -2323,8 +2213,8 @@ function buildBookmarkTree(bookmarks: any[]): TreeOption[] {
 				parentNode.children.push(node);
 				// 按sort值排序子节点
 				parentNode.children.sort((a, b) => {
-					const sortA = a.rawNode?.sort ?? 0;
-					const sortB = b.rawNode?.sort ?? 0;
+					const sortA = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+					const sortB = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
 					return sortA - sortB;
 				});
 				parentNode.disabledExpand = false;
@@ -2338,8 +2228,8 @@ function buildBookmarkTree(bookmarks: any[]): TreeOption[] {
 
 	// 按sort值排序根节点
 	rootNodes.sort((a, b) => {
-		const sortA = a.rawNode?.sort ?? 0;
-		const sortB = b.rawNode?.sort ?? 0;
+		const sortA = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+		const sortB = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
 		return sortA - sortB;
 	});
 

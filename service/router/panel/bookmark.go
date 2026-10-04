@@ -17,6 +17,7 @@ func InitBookmark(router *gin.RouterGroup) {
 		private.POST("/panel/bookmark/addMultiple", bookmarkApi.AddMultiple)
 		private.POST("/panel/bookmark/add", bookmarkApi.Add)
 		private.POST("/panel/bookmark/update", bookmarkApi.Update)
+		private.POST("/panel/bookmark/saveSort", bookmarkApi.SaveSort)
 		private.POST("/panel/bookmark/deletes", bookmarkApi.Deletes)
 	}
 

@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"golang.org/x/net/html"
+	"gorm.io/gorm"
 )
 
 // BookmarkImportRequest 书签导入请求结构
@@ -668,6 +669,53 @@ func (a *Bookmark) Deletes(c *gin.Context) {
 	// 删除所有收集到的书签，使用Unscoped()确保是硬删除
 	if err := global.Db.Unscoped().Where("user_id = ? AND id IN ?", userInfo.ID, allIdsToDelete).Delete(&models.Bookmark{}).Error; err != nil {
 		apiReturn.Error(c, "删除书签失败")
+		return
+	}
+
+	apiReturn.Success(c)
+}
+
+// BookmarkSortItem 单个书签排序项
+type BookmarkSortItem struct {
+	Id       uint  `json:"id" binding:"required"`
+	Sort     int   `json:"sort"`
+	ParentId *uint `json:"parentId"`
+}
+
+// BookmarkSaveSortRequest 批量保存书签排序请求
+type BookmarkSaveSortRequest struct {
+	SortItems []BookmarkSortItem `json:"sortItems" binding:"required"`
+}
+
+// SaveSort 批量保存书签排序
+func (a *Bookmark) SaveSort(c *gin.Context) {
+	userInfo, _ := base.GetCurrentUserInfo(c)
+	var req BookmarkSaveSortRequest
+
+	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+		apiReturn.ErrorParamFomat(c, err.Error())
+		return
+	}
+
+	err := global.Db.Transaction(func(tx *gorm.DB) error {
+		for _, item := range req.SortItems {
+			updateData := map[string]interface{}{
+				"Sort": item.Sort,
+			}
+			if item.ParentId != nil {
+				updateData["ParentId"] = *item.ParentId
+			}
+			if err := tx.Model(&models.Bookmark{}).
+				Where("user_id = ? AND id = ?", userInfo.ID, item.Id).
+				Updates(updateData).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		apiReturn.ErrorDatabase(c, err.Error())
 		return
 	}
 
