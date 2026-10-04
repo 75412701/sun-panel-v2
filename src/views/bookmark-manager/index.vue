@@ -1380,107 +1380,21 @@ async function handleDrop(event: DragEvent, targetItem: any) {
 			parentId: Number(draggedFolderId),
 		}));
 
+		// 先执行乐观更新，平滑刷新本地树形与缓存
+		updateCacheAfterSort(sortItems);
+
+		// 异步同步到服务端保存
 		try {
-			// === 步骤1: 先立即更新本地UI,实现乐观更新 ===
-			const updateLocalItemSort = (itemId: number, newSort: number) => {
-				// 递归更新树形结构中的sort值
-				const updateNodeSort = (nodes: any[]): boolean => {
-					for (const node of nodes) {
-						const nodeId = Number(node.id) || Number(node.key) || Number(node.bookmark?.id);
-						if (nodeId === itemId) {
-							if (node.bookmark) {
-								node.bookmark.sort = newSort;
-							}
-							node.sort = newSort;
-							if (node.rawNode) {
-								node.rawNode.sort = newSort;
-							}
-							return true;
-						}
-						if (node.children?.length) {
-							if (updateNodeSort(node.children)) return true;
-						}
-					}
-					return false;
-				};
-
-				updateNodeSort(fullData.value);
-				updateNodeSort(bookmarkTree.value);
-			};
-
-			// 更新所有项目的排序值
-			for (const item of sortItems) {
-				updateLocalItemSort(item.id, item.sort);
+			const res = await saveBookmarkSort(sortItems);
+			if (res && res.code !== 0) {
+				console.error('服务器排序保存失败:', res);
+				ms.error('排序保存失败,已恢复');
+				refreshBookmarks(true);
 			}
-
-			// 递归排序children数组的实际顺序
-			const sortAllChildren = (nodes: any[]) => {
-				for (const node of nodes) {
-					if (node.children?.length) {
-						node.children.sort((a: any, b: any) => {
-							const aSort = a.bookmark?.sort || a.sort || a.rawNode?.sort || 0;
-							const bSort = b.bookmark?.sort || b.sort || b.rawNode?.sort || 0;
-							return aSort - bSort;
-						});
-						sortAllChildren(node.children);
-					}
-				}
-			};
-
-			// 同时排序根级节点
-			fullData.value.sort((a, b) => (a.sort || a.rawNode?.sort || 0) - (b.sort || b.rawNode?.sort || 0));
-			sortAllChildren(fullData.value);
-			sortAllChildren(bookmarkTree.value);
-
-			// 触发Vue响应式更新
-			fullData.value = [...fullData.value];
-			bookmarkTree.value = [...bookmarkTree.value];
-
-			// 存储更新后的书签树到本地缓存
-			const processCacheNode = (node: TreeOption) => {
-				const parentId = node.rawNode?.parentId || node.ParentId || '0';
-				const rawNode = { ...node.rawNode };
-				if (!node.isFolder && rawNode.iconJson) {
-					delete rawNode.iconJson;
-				}
-
-				const processedNode: TreeOption = {
-					key: node.key,
-					label: node.label,
-					isLeaf: node.isLeaf,
-					isFolder: node.isFolder,
-					bookmark: node.bookmark,
-					rawNode: rawNode,
-					disabledExpand: node.disabledExpand,
-					sort: node.sort,
-					ParentId: parentId.toString(),
-					children: []
-				};
-
-				if (node.children && node.children.length > 0) {
-					processedNode.children = node.children.map((child: TreeOption) => processCacheNode(child));
-				}
-
-				return processedNode;
-			};
-
-			const processedCache = fullData.value.map(processCacheNode);
-			ss.set(BOOKMARKS_CACHE_KEY, processedCache);
-
-			// === 步骤2: 批量同步到服务器 (单次事务请求) ===
-			saveBookmarkSort(sortItems)
-				.then(() => {
-					// 批量保存成功
-				})
-				.catch((error) => {
-					console.error('服务器排序保存失败,回滚本地数据:', error);
-					ms.error('排序保存失败,已恢复');
-					// 同步失败时,从服务器重新拉取数据
-					refreshBookmarks(true);
-				});
 		} catch (error) {
-			console.error('本地更新失败:', error);
-			ms.error('排序更新失败');
+			console.error('服务器排序保存失败,回滚本地数据:', error);
+			ms.error('排序保存失败,已恢复');
+			refreshBookmarks(true);
 		}
 	} else {
 		ms.warning('排序更新失败：找不到相关项目');
@@ -2351,6 +2265,90 @@ function updateCacheAfterAdd(bookmark: any) {
 	} catch (error) {
 		console.error('更新缓存失败，刷新数据:', error);
 		refreshBookmarks(false);
+	}
+}
+
+// 更新缓存：批量保存书签排序
+function updateCacheAfterSort(sortItems: { id: number; sort: number }[]) {
+	try {
+		const sortMap = new Map(sortItems.map(item => [Number(item.id), item.sort]));
+
+		// 1. 同步更新 fullData 和 bookmarkTree
+		const updateNodeSort = (nodes: any[]) => {
+			if (!Array.isArray(nodes)) return;
+			for (const node of nodes) {
+				const nodeId = Number(node.id || node.key || node.bookmark?.id);
+				if (sortMap.has(nodeId)) {
+					const newSort = sortMap.get(nodeId)!;
+					if (node.bookmark) {
+						node.bookmark.sort = newSort;
+					}
+					node.sort = newSort;
+					if (node.rawNode) {
+						node.rawNode.sort = newSort;
+					}
+				}
+				if (node.children && Array.isArray(node.children)) {
+					updateNodeSort(node.children);
+					node.children.sort((a: any, b: any) => {
+						const aSort = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+						const bSort = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
+						return aSort - bSort;
+					});
+				}
+			}
+		};
+
+		if (Array.isArray(fullData.value)) {
+			updateNodeSort(fullData.value);
+			fullData.value.sort((a, b) => {
+				const aSort = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+				const bSort = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
+				return aSort - bSort;
+			});
+			fullData.value = [...fullData.value];
+		}
+
+		if (Array.isArray(bookmarkTree.value)) {
+			updateNodeSort(bookmarkTree.value);
+			bookmarkTree.value.sort((a, b) => {
+				const aSort = a.sort ?? a.bookmark?.sort ?? a.rawNode?.sort ?? 0;
+				const bSort = b.sort ?? b.bookmark?.sort ?? b.rawNode?.sort ?? 0;
+				return aSort - bSort;
+			});
+			bookmarkTree.value = [...bookmarkTree.value];
+		}
+
+		// 2. 更新持久化本地缓存
+		const cachedData = ss.get(BOOKMARKS_CACHE_KEY);
+		if (cachedData) {
+			let cacheList: any[] = [];
+			if (Array.isArray(cachedData)) {
+				cacheList = cachedData;
+			} else if (cachedData.list && Array.isArray(cachedData.list)) {
+				cacheList = cachedData.list;
+			}
+
+			if (cacheList.length > 0) {
+				const updateCacheListSort = (nodes: any[]) => {
+					for (const node of nodes) {
+						const nodeId = Number(node.id || node.key);
+						if (sortMap.has(nodeId)) {
+							node.sort = sortMap.get(nodeId);
+						}
+						if (node.children && Array.isArray(node.children)) {
+							updateCacheListSort(node.children);
+							node.children.sort((a: any, b: any) => (a.sort || 0) - (b.sort || 0));
+						}
+					}
+				};
+				updateCacheListSort(cacheList);
+				cacheList.sort((a: any, b: any) => (a.sort || 0) - (b.sort || 0));
+				ss.set(BOOKMARKS_CACHE_KEY, cachedData);
+			}
+		}
+	} catch (error) {
+		console.error('更新本地排序状态失败:', error);
 	}
 }
 
