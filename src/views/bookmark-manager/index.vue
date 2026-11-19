@@ -98,7 +98,11 @@
   ]"
 				:style="{ width: !isMobile ? leftPanelWidth + 'px' : '' }"
 			>
+				<div v-if="isLoading && bookmarkTree.length === 0" class="flex items-center justify-center py-8">
+					<n-spin size="small" />
+				</div>
 				<n-tree
+					v-else
 					:data="bookmarkTree"
 					:default-expanded-keys="defaultExpandedKeys"
 					:selected-keys="selectedKeysRef"
@@ -146,7 +150,10 @@
 
 				<!-- 书签列表 - 简洁列表样式 -->
 				<div class="flex-1 relative overflow-auto bg-white dark:bg-gray-800" @dragover.prevent="handleContainerDragOver">
-					<div v-if="filteredBookmarks.length === 0" class="text-center py-8 text-gray-400 dark:text-gray-500">
+					<div v-if="isLoading" class="flex items-center justify-center py-16">
+						<n-spin size="medium" />
+					</div>
+					<div v-else-if="filteredBookmarks.length === 0" class="text-center py-8 text-gray-400 dark:text-gray-500">
 						{{ t('bookmarkManager.noData') }}
 					</div>
 
@@ -288,7 +295,7 @@
 
 import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue'
 // 不再直接导入SVG文件，使用内联方式
-import { NTree, NInput, useMessage, NTreeSelect } from 'naive-ui'
+import { NTree, NInput, useMessage, NTreeSelect, NSpin } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { getList as getBookmarksList, add as addBookmark, update, deletes, saveSort as saveBookmarkSort, addMultiple as addMultipleBookmarks } from '@/api/panel/bookmark'
 import { t } from '@/locales'
@@ -435,6 +442,7 @@ interface Bookmark {
 }
 
 
+const isLoading = ref(false)
 const bookmarkTree = ref<any[]>([])
 
 // 当前选中的文件夹，初始化为根目录'0'
@@ -442,9 +450,6 @@ const selectedFolder = ref<string>('0')
 
 // 新增：响应式的完整数据变量
 const fullData = ref<any[]>([])
-
-// 新增：响应式的原始数据缓存变量
-const rawDataCache = ref<any>(null)
 
 // 计算属性 - 所有书签和文件夹
 const allItems = computed<(Bookmark & { isFolder?: boolean })[]>(() => {
@@ -1802,52 +1807,10 @@ function filterFoldersOnly(nodes: TreeOption[]): TreeOption[] {
 	return result;
 }
 
-// 刷新书签列表
-async function refreshBookmarks(forceRefresh = false) {
+// 刷新书签列表：直接请求服务端接口获取最新数据（不依赖本地缓存）
+async function refreshBookmarks(_forceRefresh = false) {
+	isLoading.value = true;
 	try {
-		// 强制刷新时清除缓存（与首页保持一致）
-		if (forceRefresh) {
-			ss.remove(BOOKMARKS_CACHE_KEY);
-		}
-
-		// 1. 优先尝试从本地缓存获取数据（与首页缓存一致）
-		if (!forceRefresh) {
-			const cachedData = ss.get(BOOKMARKS_CACHE_KEY);
-			if (cachedData) {
-				let treeDataResult: TreeOption[] = [];
-				const data = cachedData;
-
-				if (Array.isArray(data) && data.length > 0 && 'children' in data[0]) {
-					treeDataResult = convertServerTreeToFrontendTree(data);
-				} else if ((data as { list?: any[] }).list && Array.isArray((data as { list?: any[] }).list)) {
-					const serverBookmarks = (data as { list: any[] }).list;
-					if (serverBookmarks.length > 0 && 'children' in serverBookmarks[0]) {
-						treeDataResult = convertServerTreeToFrontendTree(serverBookmarks);
-					} else {
-						treeDataResult = buildBookmarkTree(serverBookmarks);
-					}
-				} else {
-					treeDataResult = buildBookmarkTree(Array.isArray(data) ? data : []);
-				}
-
-				if (Array.isArray(treeDataResult) && treeDataResult.length > 0) {
-					fullData.value = treeDataResult;
-					rawDataCache.value = cachedData;
-
-					const folderTreeData = filterFoldersOnly(treeDataResult);
-					bookmarkTree.value = JSON.parse(JSON.stringify(folderTreeData));
-
-					if (folderTreeData.length > 0 && folderTreeData[0].key) {
-						defaultExpandedKeys.value = [folderTreeData[0].key];
-					} else {
-						defaultExpandedKeys.value = [];
-					}
-					return;
-				}
-			}
-		}
-
-		// 2. 缓存不存在、解析为空或强制刷新时从服务器获取数据
 		const response = await getBookmarksList();
 		if (response && response.code === 0) {
 			let serverBookmarks: any[] = [];
@@ -1866,8 +1829,12 @@ async function refreshBookmarks(forceRefresh = false) {
 				treeDataResult = buildBookmarkTree(serverBookmarks);
 			}
 
-			// 存储到缓存（与首页保持一致，缓存原始服务器数据）
-			ss.set(BOOKMARKS_CACHE_KEY, response.data);
+			// 同步更新缓存供其他组件读取
+			try {
+				ss.set(BOOKMARKS_CACHE_KEY, response.data);
+			} catch (e) {
+				console.warn('书签缓存写入失败:', e);
+			}
 
 			// 更新完整数据与文件夹树
 			fullData.value = treeDataResult;
@@ -1881,19 +1848,56 @@ async function refreshBookmarks(forceRefresh = false) {
 			}
 		} else {
 			console.error('获取书签数据失败:', response);
-			if (fullData.value.length === 0) {
-				fullData.value = [];
-				bookmarkTree.value = [];
-				defaultExpandedKeys.value = [];
-			}
+			fallbackFromCache();
 		}
 	} catch (error) {
 		console.error('刷新书签列表发生异常:', error);
-		if (fullData.value.length === 0) {
-			bookmarkTree.value = [];
-			fullData.value = [];
-			defaultExpandedKeys.value = [];
+		fallbackFromCache();
+	} finally {
+		isLoading.value = false;
+	}
+}
+
+// 接口异常时的降级方案：尝试读取本地缓存
+function fallbackFromCache() {
+	try {
+		const cachedData = ss.get(BOOKMARKS_CACHE_KEY);
+		if (cachedData) {
+			let treeDataResult: TreeOption[] = [];
+			const data = cachedData;
+
+			if (Array.isArray(data) && data.length > 0 && 'children' in data[0]) {
+				treeDataResult = convertServerTreeToFrontendTree(data);
+			} else if ((data as { list?: any[] }).list && Array.isArray((data as { list?: any[] }).list)) {
+				const serverBookmarks = (data as { list: any[] }).list;
+				if (serverBookmarks.length > 0 && 'children' in serverBookmarks[0]) {
+					treeDataResult = convertServerTreeToFrontendTree(serverBookmarks);
+				} else {
+					treeDataResult = buildBookmarkTree(serverBookmarks);
+				}
+			} else {
+				treeDataResult = buildBookmarkTree(Array.isArray(data) ? data : []);
+			}
+
+			if (Array.isArray(treeDataResult) && treeDataResult.length > 0) {
+				fullData.value = treeDataResult;
+				const folderTreeData = filterFoldersOnly(treeDataResult);
+				bookmarkTree.value = JSON.parse(JSON.stringify(folderTreeData));
+
+				if (folderTreeData.length > 0 && folderTreeData[0].key) {
+					defaultExpandedKeys.value = [folderTreeData[0].key];
+				}
+				return;
+			}
 		}
+	} catch (e) {
+		console.warn('降级读取缓存失败:', e);
+	}
+
+	if (fullData.value.length === 0) {
+		fullData.value = [];
+		bookmarkTree.value = [];
+		defaultExpandedKeys.value = [];
 	}
 }
 
