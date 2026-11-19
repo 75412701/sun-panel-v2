@@ -100,6 +100,10 @@ func (a UsersApi) Deletes(c *gin.Context) {
 			if err := tx.Delete(&models.ModuleConfig{}, "user_id=?", v).Error; err != nil {
 				return err
 			}
+			// 删除用户Token凭证
+			if err := tx.Delete(&models.UserToken{}, "user_id=?", v).Error; err != nil {
+				return err
+			}
 			// // 删除文件记录（不删除资源文件）
 			// if err := tx.Delete(&models.File{}, "user_id=?", v).Error; err != nil {
 			// 	return err
@@ -185,8 +189,12 @@ func (a UsersApi) Update(c *gin.Context) {
 		apiReturn.ErrorDatabase(c, err.Error())
 		return
 	}
-	// global.Logger.Debug("修改资料清空token", userInfo.Token)
+	if param.Status != 1 || param.Password != "" {
+		mUserToken := models.UserToken{}
+		_ = mUserToken.DeleteByUserId(param.ID)
+	}
 	global.UserToken.Delete(userInfo.Token) // 更新用户信息
+	global.CUserToken.Delete(userInfo.Token)
 	// 返回token等基本信息
 	apiReturn.SuccessData(c, param)
 }

@@ -83,9 +83,10 @@ func InitApp() error {
 		}
 	}
 
-	// 初始化用户token
+	// 初始化用户token缓存并从数据库预热所有有效凭证
 	global.UserToken = userToken.InitUserToken()
 	global.CUserToken = cUserToken.InitCUserToken()
+	userToken.PreloadTokensFromDB()
 
 	// 其他的初始化
 	global.VerifyCodeCachePool = other.InitVerifyCodeCachePool()

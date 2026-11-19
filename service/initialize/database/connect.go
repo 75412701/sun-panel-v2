@@ -117,6 +117,7 @@ func CreateDatabase(driver string, db *gorm.DB) error {
 	// 创建数据表
 	err := db.AutoMigrate(
 		&models.User{},
+		&models.UserToken{},
 		&models.SystemSetting{},
 		&models.ItemIcon{},
 		&models.UserConfig{},

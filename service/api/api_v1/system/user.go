@@ -109,8 +109,13 @@ func (a *UserApi) UpdatePasssword(c *gin.Context) {
 		apiReturn.ErrorDatabase(c, res.Error.Error())
 		return
 	}
-	// 删除token
+	// 删除数据库中该用户的所有有效 token（下线所有设备）
+	mUserToken := models.UserToken{}
+	_ = mUserToken.DeleteByUserId(userInfo.ID)
+
+	// 删除内存缓存 token
 	global.UserToken.Delete(userInfo.Token)
+	global.CUserToken.Delete(userInfo.Token)
 	apiReturn.Success(c)
 }
 

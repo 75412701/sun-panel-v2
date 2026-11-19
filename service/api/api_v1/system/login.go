@@ -52,7 +52,6 @@ func (l LoginApi) Login(c *gin.Context) {
 		err  error
 		info models.User
 	)
-	bToken := ""
 	param.Username = strings.TrimSpace(param.Username)
 	global.Logger.Infof("DEBUG LOGIN: Received Username=[%s], Password=[%s], PasswordLength=%d, TargetHash=[%s]", param.Username, param.Password, len(param.Password), cmn.PasswordEncryption(param.Password))
 
@@ -88,42 +87,45 @@ func (l LoginApi) Login(c *gin.Context) {
 		return
 	}
 
-	bToken = info.Token
-	if info.Token == "" {
-		// 生成token
-		buildTokenOver := false
-		for !buildTokenOver {
-			bToken = cmn.BuildRandCode(32, cmn.RAND_CODE_MODE2)
-			if _, err := mUser.GetUserInfoByToken(bToken); err != nil {
-				// 保存token
-				mUser.UpdateUserInfoByUserId(info.ID, map[string]interface{}{
-					"token": bToken,
-				})
-				buildTokenOver = true
-			}
-		}
-		info.Token = bToken
-	}
 	info.Password = ""
 	info.ReferralCode = ""
 
-	// global.UserToken.SetDefault(bToken, info)
+	// 生成客户端唯一 Token
 	cToken := uuid.NewString() + "-" + cmn.Md5(cmn.Md5("userId"+strconv.Itoa(int(info.ID))))
-	global.CUserToken.SetDefault(cToken, bToken)
-	global.Logger.Debug("token:", cToken, "|", bToken)
-	global.Logger.Debug(global.CUserToken.Get(cToken))
+
+	// 1. 持久化到 user_token 数据库表，支持多设备同时在线与重启恢复
+	mUserToken := models.UserToken{}
+	if err := mUserToken.AddToken(info.ID, cToken); err != nil {
+		global.Logger.Errorf("DEBUG LOGIN: Failed to insert user_token into DB: %v", err)
+	}
+
+	// 兼容老版本单字段
+	_ = mUser.UpdateUserInfoByUserId(info.ID, map[string]interface{}{
+		"token": cToken,
+	})
+
+	// 2. 存入内存缓存，保证后续接口 O(1) 极速直接命中
+	global.CUserToken.SetDefault(cToken, cToken)
+	global.UserToken.SetDefault(cToken, info)
 
 	// 设置当前用户信息
 	c.Set("userInfo", info)
-	info.Token = cToken // 重要 采用cToken,隐藏真实token
+	info.Token = cToken
 	global.Logger.Infof("DEBUG LOGIN: ALL STEPS COMPLETE. Returning SuccessData for [%s]. Token=[%s...]", param.Username, cToken[:10])
 	apiReturn.SuccessData(c, info)
 }
 
 // 安全退出
 func (l *LoginApi) Logout(c *gin.Context) {
-	// userInfo, _ := base.GetCurrentUserInfo(c)
 	cToken := c.GetHeader("token")
-	global.CUserToken.Delete(cToken)
+	if cToken != "" {
+		// 1. 从内存缓存中删除
+		global.CUserToken.Delete(cToken)
+		global.UserToken.Delete(cToken)
+
+		// 2. 从数据库 user_token 表中物理删除该设备的登录凭证
+		mUserToken := models.UserToken{}
+		_ = mUserToken.DeleteByToken(cToken)
+	}
 	apiReturn.Success(c)
 }
